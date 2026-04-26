@@ -23,11 +23,17 @@ const menuItems = [
   { icon: MessageSquare, label: "Messages", href: "/student/messages" },
 ]
 
-export function StudentSidebar() {
+export function StudentSidebar({
+  className,
+  onNavigate,
+}: {
+  className?: string
+  onNavigate?: () => void
+} = {}) {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 border-r border-border bg-card flex flex-col">
+    <aside className={cn("w-64 border-r border-border bg-card flex flex-col", className)}>
       <div className="p-6 border-b border-border">
         <Link href="/student" className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
@@ -48,6 +54,7 @@ export function StudentSidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     isActive
@@ -67,6 +74,7 @@ export function StudentSidebar() {
       <div className="space-y-1 border-t border-border p-4">
         <Link
           href="/"
+          onClick={onNavigate}
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <span>← Back to Website</span>

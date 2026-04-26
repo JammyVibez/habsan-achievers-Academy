@@ -13,13 +13,14 @@ import {
 import { Bell, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { dashboardLogout } from "@/lib/dashboard-logout"
+import { cn } from "@/lib/utils"
 
-export function StudentHeader() {
+export function StudentHeader({ className }: { className?: string }) {
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
-      <div>
+    <header className={cn("h-16 border-b border-border bg-card flex items-center justify-between px-3 sm:px-4 md:px-6", className)}>
+      <div className="min-w-0">
         <h1 className="font-heading font-semibold text-xl">Student Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Track your academic progress</p>
+        <p className="hidden md:block text-sm text-muted-foreground">Track your academic progress</p>
       </div>
 
       <div className="flex items-center gap-4">

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Plus, Download, Edit, Trash2, Eye } from 'lucide-react';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { AdminRowActionsMenu } from '@/components/admin/admin-row-actions-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddStudentModal } from '@/components/admin/add-student-modal';
 
@@ -249,34 +247,31 @@ export default function AdminStudentsPage() {
                         <td className="px-4 py-3 text-sm">
                           <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>{student.status}</Badge>
                         </td>
-                        <td className="relative z-10 px-4 py-3 text-right">
-                          <AdminRowActionsMenu>
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                window.setTimeout(() => setDetailStudent(student), 0);
-                              }}
-                            >
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => setDetailStudent(student)}>
                               <Eye className="mr-2 h-4 w-4" />
-                              View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                window.setTimeout(() => setStubAction({ action: 'edit', student }), 0);
-                              }}
+                              View
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setStubAction({ action: 'edit', student })}
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
                               variant="destructive"
-                              onSelect={() => {
-                                window.setTimeout(() => setStubAction({ action: 'delete', student }), 0);
-                              }}
+                              onClick={() => setStubAction({ action: 'delete', student })}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
-                            </DropdownMenuItem>
-                          </AdminRowActionsMenu>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))

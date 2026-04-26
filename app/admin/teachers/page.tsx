@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Plus, Download, Edit, Trash2, Eye } from 'lucide-react';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { AdminRowActionsMenu } from '@/components/admin/admin-row-actions-menu';
 import { AddTeacherModal } from '@/components/admin/add-teacher-modal';
 
 type ApiTeacher = {
@@ -265,34 +263,31 @@ export default function AdminTeachersPage() {
                             {formatTeacherStatus(teacher.status)}
                           </Badge>
                         </td>
-                        <td className="relative z-10 px-4 py-3 text-right">
-                          <AdminRowActionsMenu>
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                window.setTimeout(() => setDetailTeacher(teacher), 0);
-                              }}
-                            >
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => setDetailTeacher(teacher)}>
                               <Eye className="mr-2 h-4 w-4" />
-                              View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                window.setTimeout(() => setStubAction({ action: 'edit', teacher }), 0);
-                              }}
+                              View
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setStubAction({ action: 'edit', teacher })}
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
                               variant="destructive"
-                              onSelect={() => {
-                                window.setTimeout(() => setStubAction({ action: 'delete', teacher }), 0);
-                              }}
+                              onClick={() => setStubAction({ action: 'delete', teacher })}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
-                            </DropdownMenuItem>
-                          </AdminRowActionsMenu>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))

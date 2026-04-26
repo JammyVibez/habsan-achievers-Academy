@@ -15,12 +15,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { AdminRowActionsMenu } from '@/components/admin/admin-row-actions-menu';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -28,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Shield, Ban, Mail, KeyRound, Copy, Check } from 'lucide-react';
+import { KeyRound, Copy, Check } from 'lucide-react';
 import { generateDefaultPassword } from '@/lib/student-utils';
 
 export type AdminUserRow = {
@@ -163,31 +157,11 @@ export function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
                     <Badge variant={user.isActive ? 'default' : 'destructive'}>{statusLabel}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatJoined(user.createdAt)}</TableCell>
-                  <TableCell className="relative z-10 text-right">
-                    <AdminRowActionsMenu triggerSize="icon">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          window.setTimeout(() => openReset(user), 0);
-                        }}
-                      >
-                        <KeyRound className="mr-2 h-4 w-4" />
-                        Set new password
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled>
-                        <Shield className="mr-2 h-4 w-4" />
-                        Edit permissions
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled>
-                        <Mail className="mr-2 h-4 w-4" />
-                        Send email
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive" disabled>
-                        <Ban className="mr-2 h-4 w-4" />
-                        {user.isActive ? 'Suspend user' : 'Activate user'}
-                      </DropdownMenuItem>
-                    </AdminRowActionsMenu>
+                  <TableCell className="text-right">
+                    <Button type="button" size="sm" variant="outline" onClick={() => openReset(user)}>
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      Set password
+                    </Button>
                   </TableCell>
                 </TableRow>
               );

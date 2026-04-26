@@ -1,0 +1,102 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  GraduationCap,
+  BookOpen,
+  ClipboardList,
+  ShoppingBag,
+  MessageSquare,
+  Settings,
+  Key,
+  Bell,
+  School,
+  UserCheck,
+  LogOut,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { dashboardLogout } from "@/lib/dashboard-logout"
+
+const menuItems = [
+  { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
+  { icon: FileText, label: "CMS Content", href: "/admin/cms" },
+  { icon: Users, label: "Users", href: "/admin/users" },
+  { icon: GraduationCap, label: "Students", href: "/admin/students" },
+  { icon: Users, label: "Teachers", href: "/admin/teachers" },
+  { icon: BookOpen, label: "Subjects", href: "/admin/subjects" },
+  { icon: School, label: "Classes", href: "/admin/classes" },
+  { icon: ClipboardList, label: "Results", href: "/admin/results" },
+  { icon: UserCheck, label: "Admissions", href: "/admin/admissions-applications" },
+  { icon: Key, label: "PIN Codes", href: "/admin/pins" },
+  { icon: Bell, label: "Noticeboard", href: "/admin/noticeboard" },
+  { icon: ShoppingBag, label: "Marketplace", href: "/admin/marketplace" },
+  { icon: MessageSquare, label: "Messages", href: "/admin/messages" },
+  { icon: Settings, label: "Settings", href: "/admin/settings" },
+]
+
+export function AdminSidebar() {
+  const pathname = usePathname()
+
+  return (
+    <aside className="w-64 border-r border-border bg-card flex flex-col">
+      <div className="p-6 border-b border-border">
+        <Link href="/admin" className="flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
+            HAA
+          </div>
+          <div>
+            <div className="font-heading font-bold text-sm leading-tight">Admin Panel</div>
+            <div className="text-xs text-muted-foreground">HABSAN ACHIEVERS</div>
+          </div>
+        </Link>
+      </div>
+
+      <nav className="flex-1 p-4 overflow-y-auto">
+        <ul className="space-y-1">
+          {menuItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href))
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+
+      <div className="space-y-1 border-t border-border p-4">
+        <Link
+          href="/"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <span>← Back to Website</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            void dashboardLogout()
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Log out
+        </button>
+      </div>
+    </aside>
+  )
+}

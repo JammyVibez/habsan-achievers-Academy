@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -11,9 +11,16 @@ import { Download, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 
 interface PINGeneratorProps {
   onGenerated?: () => void
+  /** Bump from parent to resync quota after other actions */
+  refreshKey?: number
 }
 
-export function PINGenerator({ onGenerated }: PINGeneratorProps) {
+type StatsPayload = {
+  dailyLimitPerType: number
+  remainingToday: { admission: number; result: number }
+}
+
+export function PINGenerator({ onGenerated, refreshKey = 0 }: PINGeneratorProps) {
   const [pinType, setPinType] = useState<"admission" | "result">("admission")
   const [quantity, setQuantity] = useState(10)
   const [expiryDays, setExpiryDays] = useState(90)
@@ -21,6 +28,28 @@ export function PINGenerator({ onGenerated }: PINGeneratorProps) {
   const [generatedPINs, setGeneratedPINs] = useState<string[]>([])
   const [error, setError] = useState("")
   const [quotaInfo, setQuotaInfo] = useState({ remaining: 30, limit: 30 })
+  const [quotaLoading, setQuotaLoading] = useState(true)
+
+  const syncQuotaFromServer = useCallback(async () => {
+    setQuotaLoading(true)
+    try {
+      const res = await fetch("/api/admin/pins/stats", { credentials: "include" })
+      const data = (await res.json()) as Partial<StatsPayload> & { error?: string }
+      if (!res.ok || !data.remainingToday || data.dailyLimitPerType == null) return
+      setQuotaInfo({
+        remaining: data.remainingToday[pinType],
+        limit: data.dailyLimitPerType,
+      })
+    } catch {
+      /* keep last quota */
+    } finally {
+      setQuotaLoading(false)
+    }
+  }, [pinType])
+
+  useEffect(() => {
+    void syncQuotaFromServer()
+  }, [syncQuotaFromServer, refreshKey])
 
   const handleGenerate = async () => {
     setError("")
@@ -29,7 +58,7 @@ export function PINGenerator({ onGenerated }: PINGeneratorProps) {
     try {
       if (quantity > quotaInfo.remaining) {
         setError(
-          `You can only generate ${quotaInfo.remaining} more PINs today. Daily limit is ${quotaInfo.limit} per type.`,
+          `You can only generate ${quotaInfo.remaining} more ${pinType} PINs today (UTC). Daily limit is ${quotaInfo.limit} per type for admin bulk.`,
         )
         setLoading(false)
         return
@@ -53,14 +82,19 @@ export function PINGenerator({ onGenerated }: PINGeneratorProps) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Failed to generate PINs.")
+        const msg = typeof data.error === "string" ? data.error : "Failed to generate PINs."
+        setError(
+          typeof data.remainingToday === "number"
+            ? `${msg} Remaining today: ${data.remainingToday}.`
+            : msg,
+        )
+        await syncQuotaFromServer()
         return
       }
 
       const pins: string[] = Array.isArray(data.pins) ? data.pins : []
       setGeneratedPINs(pins)
-      setQuotaInfo((prev) => ({ ...prev, remaining: Math.max(0, prev.remaining - pins.length) }))
-
+      await syncQuotaFromServer()
       onGenerated?.()
     } catch {
       setError("Failed to generate PINs. Please try again.")
@@ -97,7 +131,7 @@ export function PINGenerator({ onGenerated }: PINGeneratorProps) {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Daily Quota: {quotaInfo.remaining} of {quotaInfo.limit} {pinType} PINs remaining
+              Admin bulk quota (UTC, per type): {quotaLoading ? "…" : `${quotaInfo.remaining} of ${quotaInfo.limit} ${pinType} PINs remaining today`}. Shop-issued PINs do not count toward this limit.
             </AlertDescription>
           </Alert>
 

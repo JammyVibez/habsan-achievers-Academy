@@ -46,6 +46,19 @@ export async function POST(request: NextRequest) {
   const expiryDays = Math.min(365, Math.max(1, Math.floor(Number(body.expiryDays) || 90)));
   const expiresAt = calculateExpiryDate(expiryDays);
 
+  const alreadyToday = await countAdminPinsCreatedToday(pinType);
+  if (alreadyToday + quantity > ADMIN_PINS_DAILY_LIMIT_PER_TYPE) {
+    const remaining = Math.max(0, ADMIN_PINS_DAILY_LIMIT_PER_TYPE - alreadyToday);
+    return NextResponse.json(
+      {
+        error: `Daily admin limit is ${ADMIN_PINS_DAILY_LIMIT_PER_TYPE} ${pinType} PINs (UTC). Already created today: ${alreadyToday}. You can create at most ${remaining} more.`,
+        remainingToday: remaining,
+        dailyLimit: ADMIN_PINS_DAILY_LIMIT_PER_TYPE,
+      },
+      { status: 429 },
+    );
+  }
+
   const pins: string[] = [];
   try {
     for (let i = 0; i < quantity; i += 1) {

@@ -8,7 +8,9 @@ type ResultRow = {
   studentId?: string;
   admissionNumber: string;
   studentName?: string;
-  score: string | number;
+  ca1: string | number;
+  ca2: string | number;
+  exam: string | number;
 };
 
 export async function POST(request: NextRequest) {
@@ -38,13 +40,29 @@ export async function POST(request: NextRequest) {
     }
 
     for (const result of results) {
-      if (!result.admissionNumber || result.score === undefined || result.score === null) {
+      if (
+        !result.admissionNumber ||
+        result.ca1 === undefined ||
+        result.ca1 === null ||
+        result.ca2 === undefined ||
+        result.ca2 === null ||
+        result.exam === undefined ||
+        result.exam === null
+      ) {
         return NextResponse.json({ error: 'Invalid result entry format' }, { status: 400 });
       }
 
-      const score = parseFloat(String(result.score));
-      if (Number.isNaN(score) || score < 0 || score > 100) {
-        return NextResponse.json({ error: 'Score must be between 0 and 100' }, { status: 400 });
+      const ca1 = parseFloat(String(result.ca1));
+      const ca2 = parseFloat(String(result.ca2));
+      const exam = parseFloat(String(result.exam));
+      if (Number.isNaN(ca1) || ca1 < 0 || ca1 > 20) {
+        return NextResponse.json({ error: 'CA1 must be between 0 and 20' }, { status: 400 });
+      }
+      if (Number.isNaN(ca2) || ca2 < 0 || ca2 > 20) {
+        return NextResponse.json({ error: 'CA2 must be between 0 and 20' }, { status: 400 });
+      }
+      if (Number.isNaN(exam) || exam < 0 || exam > 60) {
+        return NextResponse.json({ error: 'Exam must be between 0 and 60' }, { status: 400 });
       }
     }
 
@@ -89,7 +107,10 @@ export async function POST(request: NextRequest) {
     const teacher = user.role === 'teacher' && teacherIdForRow ? { id: teacherIdForRow } : null;
 
     for (const row of results) {
-      const score = parseFloat(String(row.score));
+      const ca1 = parseFloat(String(row.ca1));
+      const ca2 = parseFloat(String(row.ca2));
+      const exam = parseFloat(String(row.exam));
+      const total = ca1 + ca2 + exam;
       const student = await prisma.student.findUnique({
         where: { admissionNumber: row.admissionNumber.trim() },
       });
@@ -108,7 +129,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const grade = scoreToGrade(score);
+      const grade = scoreToGrade(total);
       const remark = scoreToComment(grade);
 
       const existing = await prisma.result.findFirst({
@@ -126,8 +147,10 @@ export async function POST(request: NextRequest) {
         await prisma.result.update({
           where: { id: existing.id },
           data: {
-            exam: score,
-            total: score,
+            ca1,
+            ca2,
+            exam,
+            total,
             grade,
             remark,
             ...(teacherFk ? { teacherId: teacherFk } : {}),
@@ -140,10 +163,10 @@ export async function POST(request: NextRequest) {
             subjectId: subjectRecord.id,
             sessionId: ctx.session.id,
             termId: ctx.term.id,
-            ca1: 0,
-            ca2: 0,
-            exam: score,
-            total: score,
+            ca1,
+            ca2,
+            exam,
+            total,
             grade,
             remark,
             teacherId: teacherFk,

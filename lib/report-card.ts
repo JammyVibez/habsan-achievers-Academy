@@ -3,6 +3,10 @@ import { decimalToNumber, gradeToPoint, scoreToComment, scoreToGrade } from '@/l
 
 export type ReportSubjectRow = {
   subject: string;
+  ca1: number;
+  ca2: number;
+  exam: number;
+  total: number;
   score: number;
   grade: string;
   comment: string;
@@ -55,11 +59,18 @@ export async function buildReportCardForStudent(
   const session = student.results[0]?.session;
 
   const results: ReportSubjectRow[] = student.results.map((r) => {
-    const score = decimalToNumber(r.total);
-    const grade = r.grade ?? scoreToGrade(score);
+    const ca1 = decimalToNumber(r.ca1);
+    const ca2 = decimalToNumber(r.ca2);
+    const exam = decimalToNumber(r.exam);
+    const total = decimalToNumber(r.total);
+    const grade = r.grade ?? scoreToGrade(total);
     return {
       subject: r.subject.name,
-      score,
+      ca1,
+      ca2,
+      exam,
+      total,
+      score: total,
       grade,
       comment: r.remark ?? scoreToComment(grade),
     };

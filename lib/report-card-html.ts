@@ -14,7 +14,10 @@ export function buildReportCardHtml(data: ReportCardPayload): string {
       (r) => `
           <tr>
             <td>${esc(r.subject)}</td>
-            <td>${esc(String(r.score))}</td>
+            <td>${esc(String(r.ca1))}</td>
+            <td>${esc(String(r.ca2))}</td>
+            <td>${esc(String(r.exam))}</td>
+            <td>${esc(String(r.total))}</td>
             <td>${esc(r.grade)}</td>
             <td>${esc(r.comment)}</td>
           </tr>`,
@@ -72,7 +75,10 @@ export function buildReportCardHtml(data: ReportCardPayload): string {
         <thead>
           <tr>
             <th>Subject</th>
-            <th>Score</th>
+            <th>CA1</th>
+            <th>CA2</th>
+            <th>Exam</th>
+            <th>Total</th>
             <th>Grade</th>
             <th>Comment</th>
           </tr>

@@ -15,7 +15,16 @@ type ResultPayload = {
   className: string;
   academicSession: string;
   term: string;
-  results: Array<{ subject: string; score: number; grade: string; comment: string }>;
+  results: Array<{
+    subject: string;
+    ca1: number;
+    ca2: number;
+    exam: number;
+    total: number;
+    score: number;
+    grade: string;
+    comment: string;
+  }>;
   gpa: number;
   overallGrade: string;
   position: string;
@@ -224,7 +233,7 @@ export function StudentResultsPanel() {
             </Button>
 
             <Button asChild type="button" variant="outline" className="w-full">
-              <Link href="/pin-shop">Where to get Result PIN</Link>
+              <Link href="/pin-shop">Where to get Result PIN (school admin)</Link>
             </Button>
           </form>
         </CardContent>
@@ -274,7 +283,10 @@ export function StudentResultsPanel() {
             <thead>
               <tr className="border-b bg-muted/60">
                 <th className="p-2 text-left">Subject</th>
-                <th className="p-2 text-center">Score</th>
+                <th className="p-2 text-center">CA1</th>
+                <th className="p-2 text-center">CA2</th>
+                <th className="p-2 text-center">Exam</th>
+                <th className="p-2 text-center">Total</th>
                 <th className="p-2 text-center">Grade</th>
               </tr>
             </thead>
@@ -282,7 +294,10 @@ export function StudentResultsPanel() {
               {results.results.map((r, idx) => (
                 <tr key={idx} className="border-b last:border-0">
                   <td className="p-2">{r.subject}</td>
-                  <td className="p-2 text-center font-medium">{r.score}</td>
+                  <td className="p-2 text-center font-medium">{r.ca1}</td>
+                  <td className="p-2 text-center font-medium">{r.ca2}</td>
+                  <td className="p-2 text-center font-medium">{r.exam}</td>
+                  <td className="p-2 text-center font-semibold">{r.total}</td>
                   <td className="p-2 text-center">
                     <span className={`rounded px-2 py-0.5 text-xs font-semibold ${gradeColor(r.grade)}`}>
                       {r.grade}

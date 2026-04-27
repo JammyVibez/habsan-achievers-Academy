@@ -13,7 +13,9 @@ interface StudentResult {
   studentId: string;
   admissionNumber: string;
   studentName: string;
-  score: string;
+  ca1: string;
+  ca2: string;
+  exam: string;
 }
 
 export function ResultUploadForm() {
@@ -35,7 +37,9 @@ export function ResultUploadForm() {
     studentId: '',
     admissionNumber: '',
     studentName: '',
-    score: '',
+    ca1: '',
+    ca2: '',
+    exam: '',
   });
 
   useEffect(() => {
@@ -64,14 +68,32 @@ export function ResultUploadForm() {
       setError('Student name is required');
       return;
     }
-    if (!tempResult.score || isNaN(parseFloat(tempResult.score))) {
-      setError('Valid score is required');
+    if (tempResult.ca1 === '' || Number.isNaN(parseFloat(tempResult.ca1))) {
+      setError('Valid CA1 score is required');
+      return;
+    }
+    if (tempResult.ca2 === '' || Number.isNaN(parseFloat(tempResult.ca2))) {
+      setError('Valid CA2 score is required');
+      return;
+    }
+    if (tempResult.exam === '' || Number.isNaN(parseFloat(tempResult.exam))) {
+      setError('Valid exam score is required');
       return;
     }
 
-    const score = parseFloat(tempResult.score);
-    if (score < 0 || score > 100) {
-      setError('Score must be between 0 and 100');
+    const ca1 = parseFloat(tempResult.ca1);
+    const ca2 = parseFloat(tempResult.ca2);
+    const exam = parseFloat(tempResult.exam);
+    if (ca1 < 0 || ca1 > 20) {
+      setError('CA1 must be between 0 and 20');
+      return;
+    }
+    if (ca2 < 0 || ca2 > 20) {
+      setError('CA2 must be between 0 and 20');
+      return;
+    }
+    if (exam < 0 || exam > 60) {
+      setError('Exam must be between 0 and 60');
       return;
     }
 
@@ -98,7 +120,9 @@ export function ResultUploadForm() {
       studentId: '',
       admissionNumber: '',
       studentName: '',
-      score: '',
+      ca1: '',
+      ca2: '',
+      exam: '',
     });
   }
 
@@ -245,21 +269,59 @@ export function ResultUploadForm() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="score">Score (0-100)</Label>
-              <div className="flex gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="ca1">CA1 (0-20)</Label>
                 <Input
-                  id="score"
+                  id="ca1"
                   type="number"
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.5"
-                  placeholder="85.5"
-                  value={tempResult.score}
-                  onChange={(e) => setTempResult({ ...tempResult, score: e.target.value })}
+                  placeholder="15.0"
+                  value={tempResult.ca1}
+                  onChange={(e) => setTempResult({ ...tempResult, ca1: e.target.value })}
                   disabled={loading}
-                  className="flex-1"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ca2">CA2 (0-20)</Label>
+                <Input
+                  id="ca2"
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="0.5"
+                  placeholder="14.0"
+                  value={tempResult.ca2}
+                  onChange={(e) => setTempResult({ ...tempResult, ca2: e.target.value })}
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="exam">Exam (0-60)</Label>
+                <Input
+                  id="exam"
+                  type="number"
+                  min="0"
+                  max="60"
+                  step="0.5"
+                  placeholder="45.0"
+                  value={tempResult.exam}
+                  onChange={(e) => setTempResult({ ...tempResult, exam: e.target.value })}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
+                Total:{" "}
+                <span className="font-semibold text-foreground">
+                  {(Number(tempResult.ca1 || 0) + Number(tempResult.ca2 || 0) + Number(tempResult.exam || 0)).toFixed(1)}
+                </span>{" "}
+                / 100
+              </div>
+              <div>
                 <Button
                   type="button"
                   onClick={addResult}
@@ -288,25 +350,34 @@ export function ResultUploadForm() {
                     <tr>
                       <th className="text-left p-3">Admission Number</th>
                       <th className="text-left p-3">Student Name</th>
-                      <th className="text-center p-3">Score</th>
+                      <th className="text-center p-3">CA1</th>
+                      <th className="text-center p-3">CA2</th>
+                      <th className="text-center p-3">Exam</th>
+                      <th className="text-center p-3">Total</th>
                       <th className="text-center p-3">Grade</th>
                       <th className="text-center p-3">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {formData.results.map((result) => {
-                      const score = parseFloat(result.score);
+                      const ca1 = parseFloat(result.ca1);
+                      const ca2 = parseFloat(result.ca2);
+                      const exam = parseFloat(result.exam);
+                      const total = ca1 + ca2 + exam;
                       let grade = 'F';
-                      if (score >= 80) grade = 'A';
-                      else if (score >= 70) grade = 'B';
-                      else if (score >= 60) grade = 'C';
-                      else if (score >= 50) grade = 'D';
+                      if (total >= 80) grade = 'A';
+                      else if (total >= 70) grade = 'B';
+                      else if (total >= 60) grade = 'C';
+                      else if (total >= 50) grade = 'D';
 
                       return (
                         <tr key={result.admissionNumber} className="border-b">
                           <td className="p-3 font-mono text-blue-600">{result.admissionNumber}</td>
                           <td className="p-3">{result.studentName}</td>
-                          <td className="text-center p-3 font-semibold">{result.score}</td>
+                          <td className="text-center p-3 font-semibold">{result.ca1}</td>
+                          <td className="text-center p-3 font-semibold">{result.ca2}</td>
+                          <td className="text-center p-3 font-semibold">{result.exam}</td>
+                          <td className="text-center p-3 font-semibold text-primary">{total.toFixed(1)}</td>
                           <td className="text-center p-3">
                             <span className={`px-2 py-1 rounded text-xs font-bold ${
                               grade === 'A' ? 'bg-green-100 text-green-800' :
@@ -344,7 +415,7 @@ export function ResultUploadForm() {
               variant="outline"
               onClick={() => {
                 setFormData({ subject: '', classAssigned: '', results: [] });
-                setTempResult({ studentId: '', admissionNumber: '', studentName: '', score: '' });
+                setTempResult({ studentId: '', admissionNumber: '', studentName: '', ca1: '', ca2: '', exam: '' });
               }}
               disabled={loading}
             >

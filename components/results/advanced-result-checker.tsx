@@ -17,6 +17,10 @@ interface ResultData {
   term: string;
   results: Array<{
     subject: string;
+    ca1: number;
+    ca2: number;
+    exam: number;
+    total: number;
     score: number;
     grade: string;
     comment: string;
@@ -276,7 +280,10 @@ export function AdvancedResultChecker() {
                   <thead>
                     <tr className="border-b bg-gray-50">
                       <th className="text-left p-2">Subject</th>
-                      <th className="text-center p-2">Score</th>
+                      <th className="text-center p-2">CA1</th>
+                      <th className="text-center p-2">CA2</th>
+                      <th className="text-center p-2">Exam</th>
+                      <th className="text-center p-2">Total</th>
                       <th className="text-center p-2">Grade</th>
                       <th className="text-left p-2">Comment</th>
                     </tr>
@@ -285,7 +292,10 @@ export function AdvancedResultChecker() {
                     {results.results.map((result, idx) => (
                       <tr key={idx} className="border-b">
                         <td className="p-2">{result.subject}</td>
-                        <td className="text-center p-2 font-semibold">{result.score}</td>
+                        <td className="text-center p-2 font-semibold">{result.ca1}</td>
+                        <td className="text-center p-2 font-semibold">{result.ca2}</td>
+                        <td className="text-center p-2 font-semibold">{result.exam}</td>
+                        <td className="text-center p-2 font-semibold">{result.total}</td>
                         <td className="text-center p-2">
                           <span className={`px-2 py-1 rounded text-sm font-semibold ${getGradeColor(result.grade)}`}>
                             {result.grade}

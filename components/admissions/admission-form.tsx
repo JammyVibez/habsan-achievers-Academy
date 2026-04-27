@@ -257,7 +257,7 @@ export function AdmissionForm() {
                 <p className="text-sm font-semibold mb-3">Don&apos;t have a PIN?</p>
                 <Link href="/pin-shop">
                   <Button type="button" variant="outline" className="w-full">
-                    Go to PIN Shop - Buy Admission PIN
+                    Get Admission PIN from School Admin
                   </Button>
                 </Link>
               </div>

@@ -1,39 +1,67 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, BookOpen, ClipboardCheck, Calendar } from "lucide-react"
+import { getCurrentUser } from "@/lib/current-user"
+import { redirect } from "next/navigation"
+import { prisma } from "@/lib/prisma"
+import { getCurrentTermAndSession } from "@/lib/report-card"
 
-export default function TeacherDashboardPage() {
+export default async function TeacherDashboardPage() {
+  const user = await getCurrentUser()
+  if (!user || user.role !== "teacher") redirect("/login")
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId: user.id },
+    include: { subjects: { include: { subject: true } } },
+  })
+  if (!teacher) redirect("/login")
+
+  const homeroom = teacher.homeroomClass?.trim() || null
+  const studentsCount = homeroom ? await prisma.student.count({ where: { classLevel: homeroom } }) : 0
+  const ctx = await getCurrentTermAndSession()
+  const uploadedThisTerm = ctx
+    ? await prisma.result.count({ where: { teacherId: teacher.id, termId: ctx.term.id, sessionId: ctx.session.id } })
+    : 0
+  const pendingResults = Math.max(0, studentsCount * Math.max(teacher.subjects.length, 1) - uploadedThisTerm)
+
   const stats = [
     {
       title: "My Students",
-      value: "124",
+      value: String(studentsCount),
       icon: Users,
-      description: "Across 4 classes",
+      description: homeroom ? `Homeroom ${homeroom}` : "No homeroom assigned",
     },
     {
       title: "Subjects Teaching",
-      value: "3",
+      value: String(teacher.subjects.length),
       icon: BookOpen,
-      description: "Mathematics, Physics",
+      description: teacher.subjects.map((s) => s.subject.name).slice(0, 2).join(", ") || "No subjects assigned",
+    },
+    {
+      title: "Results Uploaded (Current Term)",
+      value: String(uploadedThisTerm),
+      icon: ClipboardCheck,
+      description: ctx ? `${ctx.term.termName} · ${ctx.session.sessionName}` : "Current term not configured",
     },
     {
       title: "Pending Results",
-      value: "12",
-      icon: ClipboardCheck,
-      description: "To be submitted",
-    },
-    {
-      title: "Classes Today",
-      value: "5",
+      value: String(pendingResults),
       icon: Calendar,
-      description: "Next: 10:00 AM",
+      description: "Estimated from class size and subjects",
     },
   ]
+
+  const recent = await prisma.result.findMany({
+    where: { teacherId: teacher.id },
+    orderBy: { updatedAt: "desc" },
+    take: 6,
+    include: { subject: { select: { name: true } }, student: { select: { classLevel: true } } },
+  })
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-heading font-bold text-3xl mb-2">Welcome Back, Teacher!</h2>
-        <p className="text-muted-foreground">Here's an overview of your teaching activities</p>
+        <h2 className="font-heading font-bold text-3xl mb-2">Welcome Back, {user.firstName}!</h2>
+        <p className="text-muted-foreground">Live overview from your assigned classes and uploaded results</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -56,22 +84,18 @@ export default function TeacherDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
+            <CardTitle>Assigned Subjects</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { time: "08:00 - 09:00", subject: "Mathematics", class: "SS 2A" },
-                { time: "10:00 - 11:00", subject: "Physics", class: "SS 3B" },
-                { time: "11:30 - 12:30", subject: "Mathematics", class: "SS 1C" },
-                { time: "13:00 - 14:00", subject: "Physics", class: "SS 2B" },
-              ].map((schedule, index) => (
+              {(teacher.subjects.length === 0
+                ? [{ subject: "No subjects assigned yet", class: homeroom || "—" }]
+                : teacher.subjects.map((s) => ({ subject: s.subject.name, class: homeroom || "—" }))).map((schedule, index) => (
                 <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div>
                     <p className="font-medium">{schedule.subject}</p>
-                    <p className="text-sm text-muted-foreground">{schedule.class}</p>
+                    <p className="text-sm text-muted-foreground">Class: {schedule.class}</p>
                   </div>
-                  <div className="text-sm text-muted-foreground">{schedule.time}</div>
                 </div>
               ))}
             </div>
@@ -84,12 +108,12 @@ export default function TeacherDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { action: "Uploaded results for SS 3A Mathematics", time: "2 hours ago" },
-                { action: "Marked attendance for SS 2B Physics", time: "5 hours ago" },
-                { action: "Posted assignment for SS 1C", time: "1 day ago" },
-                { action: "Updated lesson plan", time: "2 days ago" },
-              ].map((activity, index) => (
+              {(recent.length === 0
+                ? [{ action: "No result uploads yet", time: "—" }]
+                : recent.map((r) => ({
+                    action: `Uploaded ${r.subject.name} result (${r.student.classLevel})`,
+                    time: new Date(r.updatedAt).toLocaleString(),
+                  }))).map((activity, index) => (
                 <div key={index} className="pb-3 border-b border-border last:border-0">
                   <p className="text-sm font-medium">{activity.action}</p>
                   <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>

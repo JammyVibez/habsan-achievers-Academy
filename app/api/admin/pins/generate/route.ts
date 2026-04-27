@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdminFromRequest } from '@/lib/require-admin-api';
 import { calculateExpiryDate, generatePINCode } from '@/lib/pin-generator';
+import { ADMIN_PINS_DAILY_LIMIT_PER_TYPE, countAdminPinsCreatedToday } from '@/lib/admin-pins';
 
 export const dynamic = 'force-dynamic';
 

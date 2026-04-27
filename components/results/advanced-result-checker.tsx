@@ -157,7 +157,7 @@ export function AdvancedResultChecker() {
             <Alert className="bg-blue-50 border-blue-200">
               <Info className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-900">
-                You need a Result Checking PIN to access your results. Get one from the PIN Shop if you don&apos;t have one.
+                You need a Result Checking PIN to access your results. PIN shop is disabled; get one from school admin if you don&apos;t have one.
               </AlertDescription>
             </Alert>
 
@@ -209,7 +209,7 @@ export function AdvancedResultChecker() {
                 <p className="text-sm font-semibold mb-3">Don&apos;t have a PIN?</p>
                 <Link href="/pin-shop">
                   <Button type="button" variant="outline" className="w-full">
-                    Go to PIN Shop - Buy Result PIN
+                    Where to get Result PIN
                   </Button>
                 </Link>
               </div>

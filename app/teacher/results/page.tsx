@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,6 +11,26 @@ export default function TeacherResultsPage() {
   const [showEntryForm, setShowEntryForm] = useState(false)
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedSubject, setSelectedSubject] = useState("")
+  const [stats, setStats] = useState({ students: 0, uploadedThisTerm: 0, pending: 0, subjects: 0 })
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/teacher/dashboard", { credentials: "include" })
+        const data = await res.json()
+        if (!res.ok) return
+        setStats({
+          students: data.stats?.students ?? 0,
+          uploadedThisTerm: data.stats?.uploadedThisTerm ?? 0,
+          pending: data.stats?.pending ?? 0,
+          subjects: data.stats?.subjects ?? 0,
+        })
+      } catch {
+        // noop
+      }
+    }
+    void load()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -31,7 +51,7 @@ export default function TeacherResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">My Classes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl">4</div>
+            <div className="font-heading font-bold text-2xl">{stats.students}</div>
           </CardContent>
         </Card>
         <Card>
@@ -39,7 +59,7 @@ export default function TeacherResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Results Entered</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl text-green-600">156</div>
+            <div className="font-heading font-bold text-2xl text-green-600">{stats.uploadedThisTerm}</div>
           </CardContent>
         </Card>
         <Card>
@@ -47,7 +67,7 @@ export default function TeacherResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl text-orange-600">24</div>
+            <div className="font-heading font-bold text-2xl text-orange-600">{stats.pending}</div>
           </CardContent>
         </Card>
       </div>

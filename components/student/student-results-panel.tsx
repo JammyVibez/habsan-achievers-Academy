@@ -159,7 +159,7 @@ export function StudentResultsPanel() {
         <CardHeader>
           <CardTitle>View my results</CardTitle>
           <CardDescription>
-            Enter your <strong>result checking PIN</strong> (from the PIN shop or issued by the school). Your admission
+            Enter your <strong>result checking PIN</strong> (issued by the school). Your admission
             number ({admissionNumber}) is used automatically.
           </CardDescription>
         </CardHeader>
@@ -224,7 +224,7 @@ export function StudentResultsPanel() {
             </Button>
 
             <Button asChild type="button" variant="outline" className="w-full">
-              <Link href="/pin-shop">Buy Result PIN</Link>
+              <Link href="/pin-shop">Where to get Result PIN</Link>
             </Button>
           </form>
         </CardContent>

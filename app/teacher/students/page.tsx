@@ -1,45 +1,29 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye, Mail } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Search } from "lucide-react"
+import { getCurrentUser } from "@/lib/current-user"
+import { redirect } from "next/navigation"
+import { prisma } from "@/lib/prisma"
+import { getCurrentTermAndSession } from "@/lib/report-card"
+import { decimalToNumber } from "@/lib/grades"
 
-export default function TeacherStudentsPage() {
-  const students = [
-    {
-      name: "John Doe",
-      admissionNo: "HAA/2024/001",
-      class: "SS 2A",
-      average: "85%",
-      attendance: "95%",
-      avatar: "/placeholder.svg",
+export default async function TeacherStudentsPage() {
+  const user = await getCurrentUser()
+  if (!user || user.role !== "teacher") redirect("/login")
+  const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } })
+  if (!teacher) redirect("/login")
+
+  const where = teacher.homeroomClass ? { classLevel: teacher.homeroomClass } : undefined
+  const ctx = await getCurrentTermAndSession()
+  const students = await prisma.student.findMany({
+    where,
+    include: {
+      user: true,
+      results: ctx ? { where: { termId: ctx.term.id, sessionId: ctx.session.id } } : false,
+      attendance: true,
     },
-    {
-      name: "Jane Smith",
-      admissionNo: "HAA/2024/002",
-      class: "SS 2A",
-      average: "78%",
-      attendance: "92%",
-      avatar: "/placeholder.svg",
-    },
-    {
-      name: "Michael Johnson",
-      admissionNo: "HAA/2024/003",
-      class: "SS 2A",
-      average: "82%",
-      attendance: "98%",
-      avatar: "/placeholder.svg",
-    },
-    {
-      name: "Sarah Williams",
-      admissionNo: "HAA/2024/004",
-      class: "SS 2A",
-      average: "91%",
-      attendance: "100%",
-      avatar: "/placeholder.svg",
-    },
-  ]
+    orderBy: { createdAt: "desc" },
+    take: 300,
+  })
 
   return (
     <div className="space-y-6">
@@ -54,64 +38,45 @@ export default function TeacherStudentsPage() {
           <CardDescription>Students in your classes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
+          <div className="relative">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search students..." className="pl-9" />
+              <input
+                disabled
+                placeholder="Live list (search coming soon)..."
+                className="h-10 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm text-muted-foreground"
+              />
             </div>
-            <Select defaultValue="all">
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
-                <SelectItem value="SS3A">SS 3A</SelectItem>
-                <SelectItem value="SS2A">SS 2A</SelectItem>
-                <SelectItem value="SS1B">SS 1B</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-3">
-            {students.map((student, index) => (
-              <div key={index} className="flex items-center justify-between p-4 rounded-lg border border-border">
+            {students.map((student) => {
+              const scores = student.results ? student.results.map((r) => decimalToNumber(r.total)) : []
+              const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "—"
+              const attended = student.attendance.filter((a) => a.status === "present" || a.status === "late").length
+              const attendance = student.attendance.length > 0 ? `${Math.round((attended / student.attendance.length) * 100)}%` : "—"
+              return (
+              <div key={student.id} className="flex items-center justify-between p-4 rounded-lg border border-border">
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={student.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>
-                      {student.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
                   <div>
-                    <p className="font-semibold">{student.name}</p>
+                    <p className="font-semibold">{student.user.firstName} {student.user.lastName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {student.admissionNo} • {student.class}
+                      {student.admissionNumber} • {student.classLevel}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Average</p>
-                    <p className="font-semibold text-primary">{student.average}</p>
+                    <p className="font-semibold text-primary">{avg === "—" ? "—" : `${avg}%`}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Attendance</p>
-                    <p className="font-semibold">{student.attendance}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Mail className="h-4 w-4" />
-                    </Button>
+                    <p className="font-semibold">{attendance}</p>
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </CardContent>
       </Card>

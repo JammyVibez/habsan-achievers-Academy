@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CheckCircle, Plus, Trash2, Upload, Loader } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AVAILABLE_SUBJECTS, CLASS_LEVELS } from '@/lib/teacher-utils';
 
 interface StudentResult {
   studentId: string;
@@ -22,6 +21,9 @@ export function ResultUploadForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [classLevels, setClassLevels] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     subject: '',
@@ -35,6 +37,22 @@ export function ResultUploadForm() {
     studentName: '',
     score: '',
   });
+
+  useEffect(() => {
+    async function loadMeta() {
+      setMetaLoading(true);
+      try {
+        const res = await fetch('/api/results/upload-meta', { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) return;
+        setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+        setClassLevels(Array.isArray(data.classes) ? data.classes : []);
+      } finally {
+        setMetaLoading(false);
+      }
+    }
+    void loadMeta();
+  }, []);
 
   function addResult() {
     // Validate temp result
@@ -171,7 +189,7 @@ export function ResultUploadForm() {
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  {AVAILABLE_SUBJECTS.map((subject) => (
+                  {subjects.map((subject) => (
                     <SelectItem key={subject} value={subject}>
                       {subject}
                     </SelectItem>
@@ -187,7 +205,7 @@ export function ResultUploadForm() {
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CLASS_LEVELS.map((cls) => (
+                  {classLevels.map((cls) => (
                     <SelectItem key={cls} value={cls}>
                       {cls}
                     </SelectItem>
@@ -196,6 +214,7 @@ export function ResultUploadForm() {
               </Select>
             </div>
           </div>
+          {metaLoading && <p className="text-xs text-muted-foreground">Loading subject/class options…</p>}
 
           {/* Add Student Result Section */}
           <div className="border rounded-lg p-4 bg-gray-50 space-y-4">

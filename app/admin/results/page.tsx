@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,33 @@ import { Upload, Download, Search } from "lucide-react"
 export default function AdminResultsPage() {
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedTerm, setSelectedTerm] = useState("")
+  const [summary, setSummary] = useState({
+    totalStudents: 0,
+    uploaded: 0,
+    pending: 0,
+    averageScore: null as number | null,
+    byClass: [] as Array<{ classLevel: string; totalStudents: number; uploaded: number; pending: number; average: number | null }>,
+  })
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/admin/results/summary", { credentials: "include" })
+        const data = await res.json()
+        if (!res.ok) return
+        setSummary({
+          totalStudents: data.totalStudents ?? 0,
+          uploaded: data.uploaded ?? 0,
+          pending: data.pending ?? 0,
+          averageScore: data.averageScore ?? null,
+          byClass: Array.isArray(data.byClass) ? data.byClass : [],
+        })
+      } catch {
+        // no-op
+      }
+    }
+    void load()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -37,7 +64,7 @@ export default function AdminResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl">524</div>
+            <div className="font-heading font-bold text-2xl">{summary.totalStudents}</div>
           </CardContent>
         </Card>
         <Card>
@@ -45,7 +72,7 @@ export default function AdminResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Results Uploaded</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl text-green-600">456</div>
+            <div className="font-heading font-bold text-2xl text-green-600">{summary.uploaded}</div>
           </CardContent>
         </Card>
         <Card>
@@ -53,7 +80,7 @@ export default function AdminResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl text-orange-600">68</div>
+            <div className="font-heading font-bold text-2xl text-orange-600">{summary.pending}</div>
           </CardContent>
         </Card>
         <Card>
@@ -61,7 +88,9 @@ export default function AdminResultsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Average Score</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-heading font-bold text-2xl">72.5%</div>
+            <div className="font-heading font-bold text-2xl">
+              {summary.averageScore === null ? "—" : `${summary.averageScore}%`}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -87,22 +116,16 @@ export default function AdminResultsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { class: "SS 3A", total: 45, uploaded: 45, pending: 0, average: "78.5%" },
-                  { class: "SS 3B", total: 42, uploaded: 42, pending: 0, average: "75.2%" },
-                  { class: "SS 2A", total: 48, uploaded: 40, pending: 8, average: "71.8%" },
-                  { class: "SS 2B", total: 46, uploaded: 38, pending: 8, average: "69.5%" },
-                  { class: "SS 1A", total: 50, uploaded: 45, pending: 5, average: "73.2%" },
-                ].map((item, index) => (
+                {summary.byClass.map((item, index) => (
                   <div key={index} className="flex items-center justify-between p-4 rounded-lg border border-border">
                     <div>
-                      <p className="font-semibold">{item.class}</p>
+                      <p className="font-semibold">{item.classLevel}</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.uploaded}/{item.total} students
+                        {item.uploaded}/{item.totalStudents} students
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-primary">{item.average}</p>
+                      <p className="font-semibold text-primary">{item.average === null ? "—" : `${item.average}%`}</p>
                       <p className="text-sm text-muted-foreground">
                         {item.pending > 0 ? `${item.pending} pending` : "Complete"}
                       </p>

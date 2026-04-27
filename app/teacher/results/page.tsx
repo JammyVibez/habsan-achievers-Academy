@@ -12,6 +12,7 @@ export default function TeacherResultsPage() {
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedSubject, setSelectedSubject] = useState("")
   const [stats, setStats] = useState({ students: 0, uploadedThisTerm: 0, pending: 0, subjects: 0 })
+  const [recentUploads, setRecentUploads] = useState<Array<{ subject: string; classLevel: string; updatedAt: string }>>([])
 
   useEffect(() => {
     async function load() {
@@ -25,6 +26,15 @@ export default function TeacherResultsPage() {
           pending: data.stats?.pending ?? 0,
           subjects: data.stats?.subjects ?? 0,
         })
+        setRecentUploads(
+          Array.isArray(data.recentUploads)
+            ? data.recentUploads.map((r: any) => ({
+                subject: r.subject ?? "—",
+                classLevel: r.classLevel ?? "—",
+                updatedAt: r.updatedAt ?? "",
+              }))
+            : [],
+        )
       } catch {
         // noop
       }
@@ -77,8 +87,8 @@ export default function TeacherResultsPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>My Results</CardTitle>
-            <CardDescription>View and manage results you've entered</CardDescription>
+            <CardTitle>Recent uploads</CardTitle>
+            <CardDescription>Live uploads for the current teacher account</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-4">
@@ -105,33 +115,26 @@ export default function TeacherResultsPage() {
             </div>
 
             <div className="space-y-3">
-              {[
-                { class: "SS 3A", subject: "Mathematics", students: 45, entered: 45, status: "Complete" },
-                { class: "SS 2A", subject: "Mathematics", students: 48, entered: 40, status: "Pending" },
-                { class: "SS 1B", subject: "Physics", students: 42, entered: 42, status: "Complete" },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-4 rounded-lg border border-border">
-                  <div>
-                    <p className="font-semibold">
-                      {item.class} - {item.subject}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {item.entered}/{item.students} students
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-sm font-medium ${item.status === "Complete" ? "text-green-600" : "text-orange-600"}`}
-                    >
-                      {item.status}
-                    </span>
-                    <Button variant="outline" size="sm">
+              {recentUploads.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No uploads yet for this teacher.</p>
+              ) : (
+                recentUploads.slice(0, 12).map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 rounded-lg border border-border">
+                    <div>
+                      <p className="font-semibold">
+                        {item.classLevel} - {item.subject}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Updated {item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "—"}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" disabled>
                       <FileText className="mr-2 h-4 w-4" />
-                      View
+                      Synced
                     </Button>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

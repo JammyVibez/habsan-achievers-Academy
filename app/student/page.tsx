@@ -1,33 +1,63 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BookOpen, Award, Calendar, TrendingUp } from "lucide-react"
+import { getCurrentUser } from "@/lib/current-user"
+import { prisma } from "@/lib/prisma"
+import { getCurrentTermAndSession } from "@/lib/report-card"
+import { decimalToNumber } from "@/lib/grades"
 
-export default function StudentDashboardPage() {
+export default async function StudentDashboardPage() {
+  const user = await getCurrentUser()
+  if (!user || user.role !== "student") redirect("/login")
+
+  const student = await prisma.student.findUnique({
+    where: { userId: user.id },
+    include: { attendance: true },
+  })
+  if (!student) redirect("/login")
+
+  const ctx = await getCurrentTermAndSession()
+  const results = ctx
+    ? await prisma.result.findMany({
+        where: { studentId: student.id, termId: ctx.term.id, sessionId: ctx.session.id },
+        select: { total: true },
+      })
+    : []
+  const scores = results.map((r) => decimalToNumber(r.total))
+  const average = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "—"
+
+  const attendanceTotal = student.attendance.length
+  const attendanceGood = student.attendance.filter((a) => a.status === "present" || a.status === "late").length
+  const attendanceRate = attendanceTotal > 0 ? `${Math.round((attendanceGood / attendanceTotal) * 100)}%` : "—"
+
+  const classSize = await prisma.student.count({ where: { classLevel: student.classLevel } })
+
   const stats = [
     {
       title: "Current Class",
-      value: "SS 2A",
+      value: student.classLevel,
       icon: BookOpen,
-      description: "Science Department",
+      description: "From student profile",
     },
     {
       title: "Current Average",
-      value: "78.5%",
+      value: average === "—" ? "—" : `${average}%`,
       icon: Award,
-      description: "Good performance",
+      description: ctx ? `${ctx.term.termName}` : "Term not configured",
     },
     {
       title: "Attendance Rate",
-      value: "95%",
+      value: attendanceRate,
       icon: Calendar,
-      description: "Excellent attendance",
+      description: `${attendanceTotal} records`,
     },
     {
-      title: "Class Position",
-      value: "5th",
+      title: "Class Size",
+      value: String(classSize),
       icon: TrendingUp,
-      description: "Out of 45 students",
+      description: `${student.classLevel} students`,
     },
   ]
 
@@ -62,14 +92,14 @@ export default function StudentDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Grades are not shown here without your <strong>result checking PIN</strong> (sold at the PIN shop or by
-              the school). Use the button below — the same PIN works on the public Check Results page.
+              Grades are not shown here without your <strong>result checking PIN</strong> issued by the school.
+              Use the button below — the same PIN works on the public Check Results page.
             </p>
             <Button asChild className="w-full sm:w-auto">
               <Link href="/student/results">Enter PIN &amp; view results</Link>
             </Button>
             <Button asChild variant="outline" className="w-full sm:w-auto sm:ml-2">
-              <Link href="/pin-shop">PIN shop</Link>
+              <Link href="/pin-shop">Where to get PIN</Link>
             </Button>
           </CardContent>
         </Card>

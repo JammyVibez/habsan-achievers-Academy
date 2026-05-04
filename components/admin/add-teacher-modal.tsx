@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
-import { TeacherCreationData, AVAILABLE_SUBJECTS, CLASS_LEVELS } from '@/lib/teacher-utils';
+import { TeacherCreationData } from '@/lib/teacher-utils';
+import { useEffect } from 'react';
 
 interface AddTeacherModalProps {
   open: boolean;
@@ -21,6 +22,8 @@ export function AddTeacherModal({ open, onOpenChange, onTeacherAdded }: AddTeach
   const [success, setSuccess] = useState(false);
   const [createdTeacher, setCreatedTeacher] = useState<any>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [classLevels, setClassLevels] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<TeacherCreationData>({
     firstName: '',
@@ -114,6 +117,32 @@ export function AddTeacherModal({ open, onOpenChange, onTeacherAdded }: AddTeach
       prev.includes(subject) ? prev.filter((s) => s !== subject) : [...prev, subject]
     );
   }
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const [subjectsRes, classesRes] = await Promise.all([
+          fetch('/api/public/subjects'),
+          fetch('/api/public/classes'),
+        ]);
+        const subjectsData = await subjectsRes.json();
+        const classesData = await classesRes.json();
+        if (subjectsRes.ok) {
+          setAvailableSubjects(
+            Array.isArray(subjectsData.subjects)
+              ? subjectsData.subjects.map((s: { name: string }) => s.name).filter(Boolean)
+              : [],
+          );
+        }
+        if (classesRes.ok) {
+          setClassLevels(Array.isArray(classesData.classes) ? classesData.classes : []);
+        }
+      } catch {
+        // keep current values if loading fails
+      }
+    })();
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
@@ -224,8 +253,8 @@ export function AddTeacherModal({ open, onOpenChange, onTeacherAdded }: AddTeach
                 <SelectTrigger id="classAssigned" disabled={isLoading}>
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
-                <SelectContent>
-                  {CLASS_LEVELS.map((cls) => (
+                <SelectContent className="z-[200]">
+                  {classLevels.map((cls) => (
                     <SelectItem key={cls} value={cls}>
                       {cls}
                     </SelectItem>
@@ -237,7 +266,7 @@ export function AddTeacherModal({ open, onOpenChange, onTeacherAdded }: AddTeach
             <div>
               <Label className="text-sm font-semibold mb-3 block">Subjects *</Label>
               <div className="grid grid-cols-2 gap-2 p-3 border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
-                {AVAILABLE_SUBJECTS.map((subject) => (
+                {availableSubjects.map((subject) => (
                   <label key={subject} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"

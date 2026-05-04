@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const admin = await requireAdminFromRequest(request);
   if (!admin.ok) return admin.response;
 
-  let body: { pinType?: string; quantity?: number; expiryDays?: number };
+  let body: { pinType?: string; quantity?: number; expiryDays?: number; systemPassword?: string };
   try {
     body = await request.json();
   } catch {
@@ -43,6 +43,17 @@ export async function POST(request: NextRequest) {
   }
 
   const pinType = body.pinType === 'result' ? 'result' : 'admission';
+  const requiredPassword = process.env.PIN_GENERATION_PASSWORD;
+  if (!requiredPassword) {
+    return NextResponse.json(
+      { error: 'PIN generation password is not configured. Set PIN_GENERATION_PASSWORD in environment.' },
+      { status: 503 },
+    );
+  }
+  if ((body.systemPassword ?? '') !== requiredPassword) {
+    return NextResponse.json({ error: 'Invalid system password for PIN generation' }, { status: 403 });
+  }
+
   const quantity = Math.min(MAX_BATCH, Math.max(1, Math.floor(Number(body.quantity) || 0)));
   const expiryDays = Math.min(365, Math.max(1, Math.floor(Number(body.expiryDays) || 90)));
   const expiresAt = calculateExpiryDate(expiryDays);

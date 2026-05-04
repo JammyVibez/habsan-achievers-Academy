@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,30 +15,13 @@ import { useRouter } from "next/navigation"
 import { FileUp, Upload, X, AlertCircle, Info } from "lucide-react"
 import Link from "next/link"
 
-const CLASS_LEVELS = [
-  "Pre-Nursery",
-  "Nursery 1",
-  "Nursery 2",
-  "Primary 1",
-  "Primary 2",
-  "Primary 3",
-  "Primary 4",
-  "Primary 5",
-  "Primary 6",
-  "JSS 1",
-  "JSS 2",
-  "JSS 3",
-  "SS 1",
-  "SS 2",
-  "SS 3",
-]
-
 export function AdmissionForm() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [pinValidated, setPinValidated] = useState(false)
+  const [classLevels, setClassLevels] = useState<string[]>([])
 
   const [formData, setFormData] = useState({
     // Step 1: PIN Validation
@@ -76,6 +59,20 @@ export function AdmissionForm() {
     medicalConditions: "",
     allergies: "",
   })
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/public/classes');
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.classes)) {
+          setClassLevels(data.classes);
+        }
+      } catch {
+        // keep empty if classes fail to load
+      }
+    })();
+  }, [])
 
   const handlePINValidation = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -347,7 +344,7 @@ export function AdmissionForm() {
                   <SelectValue placeholder="Select class level" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CLASS_LEVELS.map((level) => (
+                  {classLevels.map((level) => (
                     <SelectItem key={level} value={level}>
                       {level}
                     </SelectItem>

@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth-session';
+import { getClassCatalog } from '@/lib/class-catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,13 +19,13 @@ export async function GET(request: NextRequest) {
   }
 
   if (user.role === 'admin') {
-    const [subjects, students] = await Promise.all([
+    const [subjects, classCatalog] = await Promise.all([
       prisma.subject.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { name: true } }),
-      prisma.student.findMany({ select: { classLevel: true }, distinct: ['classLevel'], orderBy: { classLevel: 'asc' } }),
+      getClassCatalog(),
     ]);
     return NextResponse.json({
       subjects: subjects.map((s) => s.name),
-      classes: students.map((s) => s.classLevel),
+      classes: classCatalog,
       role: 'admin',
     });
   }

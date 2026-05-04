@@ -1,118 +1,169 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Users, BookOpen, User } from "lucide-react"
+'use client';
 
-// Mock data
-const classes = [
-  {
-    id: 1,
-    name: "JSS 1A",
-    level: "Junior Secondary",
-    classTeacher: "Mrs. Fatima Abdullahi",
-    studentCount: 35,
-    subjects: 12,
-  },
-  {
-    id: 2,
-    name: "JSS 1B",
-    level: "Junior Secondary",
-    classTeacher: "Mr. Adebayo Johnson",
-    studentCount: 32,
-    subjects: 12,
-  },
-  {
-    id: 3,
-    name: "JSS 2A",
-    level: "Junior Secondary",
-    classTeacher: "Mrs. Blessing Okafor",
-    studentCount: 38,
-    subjects: 13,
-  },
-  {
-    id: 4,
-    name: "SS 1A",
-    level: "Senior Secondary",
-    classTeacher: "Mr. Chukwudi Okonkwo",
-    studentCount: 30,
-    subjects: 14,
-  },
-  {
-    id: 5,
-    name: "SS 2A",
-    level: "Senior Secondary",
-    classTeacher: "Mrs. Amina Bello",
-    studentCount: 28,
-    subjects: 14,
-  },
-  {
-    id: 6,
-    name: "SS 3A",
-    level: "Senior Secondary",
-    classTeacher: "Mr. Emeka Nwosu",
-    studentCount: 25,
-    subjects: 15,
-  },
-]
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function AdminClassesPage() {
+  const [classes, setClasses] = useState<string[]>([]);
+  const [newClass, setNewClass] = useState('');
+  const [editingClass, setEditingClass] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function loadClasses() {
+    const res = await fetch('/api/admin/classes', { credentials: 'include' });
+    const data = await res.json();
+    if (res.ok) setClasses(data.classes ?? []);
+  }
+
+  useEffect(() => {
+    void loadClasses();
+  }, []);
+
+  async function saveClasses(nextClasses: string[]) {
+    setLoading(true);
+    try {
+      await fetch('/api/admin/classes', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classes: nextClasses }),
+      });
+      setClasses(nextClasses);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function renameClass(oldName: string, newName: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/classes', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldName, newName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to rename class');
+      setClasses(data.classes ?? []);
+      setEditingClass(null);
+      setEditValue('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to rename class');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteClass(name: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/classes?name=${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete class');
+      setClasses(data.classes ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete class');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-balance">Class Management</h1>
-          <p className="text-muted-foreground">Manage all classes and class assignments</p>
-        </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Class
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold text-balance">Class Management</h1>
+        <p className="text-muted-foreground">Manage the class list used across admissions, teacher, and student flows.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {classes.map((classItem) => (
-          <Card key={classItem.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-xl">{classItem.name}</CardTitle>
-                  <CardDescription>{classItem.level}</CardDescription>
-                </div>
-                <Badge variant="outline">{classItem.studentCount} students</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Class Teacher:</span>
-                </div>
-                <p className="text-sm font-medium">{classItem.classTeacher}</p>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Add class</CardTitle>
+          <CardDescription>Examples: JSS 1A, SS 2B, Nursery 1.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex gap-2">
+          <Input value={newClass} onChange={(e) => setNewClass(e.target.value)} placeholder="Enter class name" />
+          <Button
+            disabled={loading || !newClass.trim()}
+            onClick={() => {
+              const cls = newClass.trim();
+              if (classes.includes(cls)) return;
+              void saveClasses([...classes, cls]);
+              setNewClass('');
+            }}
+          >
+            Add
+          </Button>
+        </CardContent>
+      </Card>
 
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span>{classItem.studentCount} Students</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  <span>{classItem.subjects} Subjects</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                  View Details
+      <Card>
+        <CardHeader>
+          <CardTitle>All classes</CardTitle>
+          <CardDescription>{classes.length} class(es)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {classes.map((cls) => (
+            <div key={cls} className="flex items-center justify-between rounded border p-3">
+              {editingClass === cls ? (
+                <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} className="mr-2" />
+              ) : (
+                <span>{cls}</span>
+              )}
+              <div className="flex items-center gap-2">
+                {editingClass === cls ? (
+                  <>
+                    <Button
+                      size="sm"
+                      disabled={loading || !editValue.trim()}
+                      onClick={() => void renameClass(cls, editValue.trim())}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={loading}
+                      onClick={() => {
+                        setEditingClass(null);
+                        setEditValue('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={loading}
+                    onClick={() => {
+                      setEditingClass(cls);
+                      setEditValue(cls);
+                      setError(null);
+                    }}
+                  >
+                    Rename
+                  </Button>
+                )}
+                <Button size="sm" variant="destructive" disabled={loading} onClick={() => void deleteClass(cls)}>
+                  Delete
                 </Button>
-                <Button size="sm" className="flex-1">
-                  Manage
-                </Button>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }

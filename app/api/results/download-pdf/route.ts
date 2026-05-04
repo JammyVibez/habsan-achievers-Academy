@@ -6,7 +6,7 @@ import { validateResultCheckingPin } from '@/lib/issued-result-pin';
 
 export async function POST(request: NextRequest) {
   try {
-    const { pin, admissionNumber } = await request.json();
+    const { pin, admissionNumber, sessionId, termId } = await request.json();
 
     if (!pin || !admissionNumber) {
       return NextResponse.json({ error: 'PIN and admission number are required' }, { status: 400 });
@@ -33,19 +33,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found for this admission number' }, { status: 404 });
     }
 
-    const ctx = await getCurrentTermAndSession();
-    if (!ctx) {
-      return NextResponse.json(
-        { error: 'Results are not available yet (academic calendar not configured).' },
-        { status: 503 },
-      );
+    let selectedSessionId: string;
+    let selectedTermId: string;
+    if (sessionId || termId) {
+      if (!sessionId || !termId) {
+        return NextResponse.json({ error: 'Select both session and term' }, { status: 400 });
+      }
+      const term = await prisma.term.findFirst({
+        where: { id: String(termId), sessionId: String(sessionId) },
+        select: { id: true, sessionId: true },
+      });
+      if (!term) {
+        return NextResponse.json({ error: 'Invalid session/term selection' }, { status: 400 });
+      }
+      selectedSessionId = term.sessionId;
+      selectedTermId = term.id;
+    } else {
+      const ctx = await getCurrentTermAndSession();
+      if (!ctx) {
+        return NextResponse.json(
+          { error: 'Results are not available yet (academic calendar not configured).' },
+          { status: 503 },
+        );
+      }
+      selectedSessionId = ctx.session.id;
+      selectedTermId = ctx.term.id;
     }
 
-    const payload = await buildReportCardForStudent(student.id, ctx.term.id, ctx.session.id);
+    const payload = await buildReportCardForStudent(student.id, selectedTermId, selectedSessionId);
 
     if (!payload || payload.results.length === 0) {
       return NextResponse.json(
-        { error: 'No published results for this student for the current term yet.' },
+        { error: 'No published results for this student in the selected session/term yet.' },
         { status: 404 },
       );
     }

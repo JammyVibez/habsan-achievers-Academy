@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Download, Eye, EyeOff, Info, Loader } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ResultPayload = {
   studentName: string;
@@ -62,6 +63,11 @@ export function StudentResultsPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ResultPayload | null>(null);
+  const [sessionTermOptions, setSessionTermOptions] = useState<
+    Array<{ id: string; sessionName: string; terms: Array<{ id: string; termName: string }> }>
+  >([]);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [selectedTermId, setSelectedTermId] = useState('');
 
   const loadProfile = useCallback(async () => {
     setLoadingProfile(true);
@@ -75,6 +81,14 @@ export function StudentResultsPanel() {
       }
       setAdmissionNumber(data.admissionNumber ?? '');
       setClassLevel(data.classLevel ?? '');
+
+      const ctxRes = await fetch('/api/student/results', { credentials: 'include' });
+      const ctxData = await ctxRes.json();
+      if (ctxRes.ok) {
+        setSessionTermOptions(ctxData.sessions ?? []);
+        if (ctxData.current?.sessionId) setSelectedSessionId(ctxData.current.sessionId);
+        if (ctxData.current?.termId) setSelectedTermId(ctxData.current.termId);
+      }
     } catch {
       setProfileError('Could not load your profile.');
     } finally {
@@ -95,7 +109,11 @@ export function StudentResultsPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ pin: pin.trim() }),
+        body: JSON.stringify({
+          pin: pin.trim(),
+          sessionId: selectedSessionId || undefined,
+          termId: selectedTermId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -119,7 +137,12 @@ export function StudentResultsPanel() {
       const response = await fetch('/api/results/download-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: pin.trim(), admissionNumber }),
+        body: JSON.stringify({
+          pin: pin.trim(),
+          admissionNumber,
+          sessionId: selectedSessionId || undefined,
+          termId: selectedTermId || undefined,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -199,6 +222,45 @@ export function StudentResultsPanel() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Academic session</Label>
+              <Select
+                value={selectedSessionId}
+                onValueChange={(value) => {
+                  setSelectedSessionId(value);
+                  const firstTerm = sessionTermOptions.find((s) => s.id === value)?.terms[0];
+                  setSelectedTermId(firstTerm?.id ?? '');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select session" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessionTermOptions.map((session) => (
+                    <SelectItem key={session.id} value={session.id}>
+                      {session.sessionName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Term</Label>
+              <Select value={selectedTermId} onValueChange={setSelectedTermId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(sessionTermOptions.find((s) => s.id === selectedSessionId)?.terms ?? []).map((term) => (
+                    <SelectItem key={term.id} value={term.id}>
+                      {term.termName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="result-pin">Result PIN</Label>
               <div className="relative">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle, Download, Loader, Eye, EyeOff, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ResultData {
   studentName: string;
@@ -49,6 +50,26 @@ export function AdvancedResultChecker() {
   });
 
   const [results, setResults] = useState<ResultData | null>(null);
+  const [sessionTermOptions, setSessionTermOptions] = useState<
+    Array<{ id: string; sessionName: string; terms: Array<{ id: string; termName: string }> }>
+  >([]);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [selectedTermId, setSelectedTermId] = useState('');
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch('/api/results/check');
+        const data = await response.json();
+        if (!response.ok) return;
+        setSessionTermOptions(data.sessions ?? []);
+        if (data.current?.sessionId) setSelectedSessionId(data.current.sessionId);
+        if (data.current?.termId) setSelectedTermId(data.current.termId);
+      } catch {
+        // no-op: user can still attempt with current session/term fallback server-side
+      }
+    })();
+  }, []);
 
   async function handleCheckResults(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +86,8 @@ export function AdvancedResultChecker() {
         body: JSON.stringify({
           pin: formData.pin,
           admissionNumber: formData.admissionNumber,
+          sessionId: selectedSessionId || undefined,
+          termId: selectedTermId || undefined,
         }),
       });
 
@@ -99,6 +122,8 @@ export function AdvancedResultChecker() {
         body: JSON.stringify({
           pin: formData.pin,
           admissionNumber: formData.admissionNumber,
+          sessionId: selectedSessionId || undefined,
+          termId: selectedTermId || undefined,
         }),
       });
 
@@ -184,6 +209,45 @@ export function AdvancedResultChecker() {
                   disabled={loading}
                   className="font-mono"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Academic session</Label>
+                <Select
+                  value={selectedSessionId}
+                  onValueChange={(value) => {
+                    setSelectedSessionId(value);
+                    const firstTerm = sessionTermOptions.find((s) => s.id === value)?.terms[0];
+                    setSelectedTermId(firstTerm?.id ?? '');
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sessionTermOptions.map((session) => (
+                      <SelectItem key={session.id} value={session.id}>
+                        {session.sessionName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Term</Label>
+                <Select value={selectedTermId} onValueChange={setSelectedTermId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select term" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(sessionTermOptions.find((s) => s.id === selectedSessionId)?.terms ?? []).map((term) => (
+                      <SelectItem key={term.id} value={term.id}>
+                        {term.termName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

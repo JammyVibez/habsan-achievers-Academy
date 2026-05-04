@@ -29,6 +29,7 @@ export function PINGenerator({ onGenerated, refreshKey = 0 }: PINGeneratorProps)
   const [error, setError] = useState("")
   const [quotaInfo, setQuotaInfo] = useState({ remaining: 30, limit: 30 })
   const [quotaLoading, setQuotaLoading] = useState(true)
+  const [systemPassword, setSystemPassword] = useState("")
 
   const syncQuotaFromServer = useCallback(async () => {
     setQuotaLoading(true)
@@ -78,6 +79,7 @@ export function PINGenerator({ onGenerated, refreshKey = 0 }: PINGeneratorProps)
           pinType,
           quantity,
           expiryDays,
+          systemPassword,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -158,6 +160,17 @@ export function PINGenerator({ onGenerated, refreshKey = 0 }: PINGeneratorProps)
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="system-password">System Password (Admin/Developer)</Label>
+            <Input
+              id="system-password"
+              type="password"
+              value={systemPassword}
+              onChange={(e) => setSystemPassword(e.target.value)}
+              placeholder="Enter protected generation password"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="quantity">Quantity (Max 30 per day)</Label>
             <Input
               id="quantity"
@@ -190,7 +203,7 @@ export function PINGenerator({ onGenerated, refreshKey = 0 }: PINGeneratorProps)
             </Alert>
           )}
 
-          <Button onClick={handleGenerate} disabled={loading} className="w-full">
+          <Button onClick={handleGenerate} disabled={loading || !systemPassword.trim()} className="w-full">
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

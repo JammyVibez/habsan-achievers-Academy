@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddTeacherModal } from '@/components/admin/add-teacher-modal';
 
 type ApiTeacher = {
@@ -34,7 +35,10 @@ function formatTeacherStatus(status: string) {
 export default function AdminTeachersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detailTeacher, setDetailTeacher] = useState<ApiTeacher | null>(null);
-  const [stubAction, setStubAction] = useState<{ action: 'edit' | 'delete'; teacher: ApiTeacher } | null>(null);
+  const [editTeacher, setEditTeacher] = useState<ApiTeacher | null>(null);
+  const [deleteTeacher, setDeleteTeacher] = useState<ApiTeacher | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [teachers, setTeachers] = useState<ApiTeacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +67,57 @@ export default function AdminTeachersPage() {
   useEffect(() => {
     void loadTeachers();
   }, [loadTeachers]);
+
+  async function handleSaveEdit() {
+    if (!editTeacher) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const [firstName, ...rest] = editTeacher.name.trim().split(/\s+/);
+      const lastName = rest.join(' ') || '-';
+      const res = await fetch('/api/admin/teachers', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editTeacher.id,
+          firstName,
+          lastName,
+          phone: editTeacher.phone === '—' ? '' : editTeacher.phone,
+          homeroomClass: editTeacher.classes[0] ?? '',
+          status: editTeacher.status,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update teacher');
+      setEditTeacher(null);
+      await loadTeachers();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to update teacher');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDeleteTeacher() {
+    if (!deleteTeacher) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/teachers?id=${encodeURIComponent(deleteTeacher.id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete teacher');
+      setDeleteTeacher(null);
+      await loadTeachers();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to delete teacher');
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -136,22 +191,79 @@ export default function AdminTeachersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={stubAction !== null} onOpenChange={(o) => !o && setStubAction(null)}>
+      <Dialog open={editTeacher !== null} onOpenChange={(o) => !o && setEditTeacher(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {stubAction?.action === 'edit' ? 'Edit teacher' : 'Delete teacher'}
-              {stubAction ? ` — ${stubAction.teacher.name}` : ''}
-            </DialogTitle>
+            <DialogTitle>Edit teacher</DialogTitle>
+            <DialogDescription>Update teacher basic details.</DialogDescription>
+          </DialogHeader>
+          {editTeacher ? (
+            <div className="space-y-3">
+              <Input
+                value={editTeacher.name}
+                onChange={(e) => setEditTeacher({ ...editTeacher, name: e.target.value })}
+                placeholder="Teacher name"
+                disabled={actionLoading}
+              />
+              <Input
+                value={editTeacher.phone === '—' ? '' : editTeacher.phone}
+                onChange={(e) => setEditTeacher({ ...editTeacher, phone: e.target.value })}
+                placeholder="Phone number"
+                disabled={actionLoading}
+              />
+              <Input
+                value={editTeacher.classes[0] ?? ''}
+                onChange={(e) => setEditTeacher({ ...editTeacher, classes: e.target.value ? [e.target.value] : [] })}
+                placeholder="Homeroom class (optional)"
+                disabled={actionLoading}
+              />
+              <Select
+                value={editTeacher.status}
+                onValueChange={(value) => setEditTeacher({ ...editTeacher, status: value })}
+                disabled={actionLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">active</SelectItem>
+                  <SelectItem value="on_leave">on leave</SelectItem>
+                  <SelectItem value="terminated">terminated</SelectItem>
+                </SelectContent>
+              </Select>
+              {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditTeacher(null)} disabled={actionLoading}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void handleSaveEdit()} disabled={actionLoading}>
+              {actionLoading ? 'Saving…' : 'Save changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteTeacher !== null} onOpenChange={(o) => !o && setDeleteTeacher(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete teacher</DialogTitle>
             <DialogDescription>
-              {stubAction?.action === 'edit'
-                ? 'Inline editing is not set up yet. Use Add Teacher for new staff until edit APIs are added.'
-                : 'Permanent delete from the admin UI is not enabled yet to avoid accidental data loss.'}
+              This removes the teacher account permanently. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          <p className="text-sm">
+            Delete <span className="font-semibold">{deleteTeacher?.name}</span> (
+            <span className="font-mono">{deleteTeacher?.staffId}</span>)?
+          </p>
+          {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
           <DialogFooter>
-            <Button type="button" onClick={() => setStubAction(null)}>
-              OK
+            <Button type="button" variant="outline" onClick={() => setDeleteTeacher(null)} disabled={actionLoading}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void handleDeleteTeacher()} disabled={actionLoading}>
+              {actionLoading ? 'Deleting…' : 'Delete teacher'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -273,7 +385,10 @@ export default function AdminTeachersPage() {
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => setStubAction({ action: 'edit', teacher })}
+                              onClick={() => {
+                                setActionError(null);
+                                setEditTeacher(teacher);
+                              }}
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
@@ -282,7 +397,10 @@ export default function AdminTeachersPage() {
                               type="button"
                               size="sm"
                               variant="destructive"
-                              onClick={() => setStubAction({ action: 'delete', teacher })}
+                              onClick={() => {
+                                setActionError(null);
+                                setDeleteTeacher(teacher);
+                              }}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete

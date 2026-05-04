@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ export function AddStudentModal({ open, onOpenChange, classes, onStudentAdded }:
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [createdStudent, setCreatedStudent] = useState<any>(null);
+  const [liveClasses, setLiveClasses] = useState<string[]>(classes);
 
   const [formData, setFormData] = useState<StudentCreationData>({
     firstName: '',
@@ -104,6 +105,25 @@ export function AddStudentModal({ open, onOpenChange, classes, onStudentAdded }:
     setSuccess(false);
     setCreatedStudent(null);
   }
+
+  useEffect(() => {
+    setLiveClasses(classes);
+  }, [classes]);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const res = await fetch('/api/public/classes');
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.classes)) {
+          setLiveClasses(data.classes);
+        }
+      } catch {
+        // fallback to provided classes
+      }
+    })();
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
@@ -196,8 +216,8 @@ export function AddStudentModal({ open, onOpenChange, classes, onStudentAdded }:
                 <SelectTrigger id="classAssigned" disabled={isLoading}>
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
-                <SelectContent>
-                  {classes.map((cls) => (
+                <SelectContent className="z-[200]">
+                  {liveClasses.map((cls) => (
                     <SelectItem key={cls} value={cls}>
                       {cls}
                     </SelectItem>

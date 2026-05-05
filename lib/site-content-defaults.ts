@@ -36,6 +36,18 @@ export type PublicSiteContent = {
     importantDates: string[];
     admissionsOffice: string[];
   };
+  [SITE_CONTENT_KEYS.idCard]: {
+    schoolName: string;
+    schoolAddress: string;
+    schoolPhone: string;
+    schoolEmail: string;
+    cardTitle: string;
+    logoText: string;
+    accentColor: string;
+    backgroundColor: string;
+    textColor: string;
+    footerText: string;
+  };
 };
 
 export function getDefaultPublicSiteContent(): PublicSiteContent {
@@ -114,6 +126,18 @@ export function getDefaultPublicSiteContent(): PublicSiteContent {
         'Office Hours: Mon-Fri, 8:00 AM - 4:00 PM',
         'Location: Plot 123, Education Avenue, Abuja',
       ],
+    },
+    [SITE_CONTENT_KEYS.idCard]: {
+      schoolName: 'HABSAN ACHIEVERS ACADEMY',
+      schoolAddress: 'Plot 123, Education Avenue, Abuja, Nigeria',
+      schoolPhone: '+234-XXX-XXX-XXXX',
+      schoolEmail: 'info@habsan.edu.ng',
+      cardTitle: 'OFFICIAL ID CARD',
+      logoText: 'HAA',
+      accentColor: '#1d4ed8',
+      backgroundColor: '#ffffff',
+      textColor: '#0f172a',
+      footerText: 'If found, please return to school management.',
     },
   };
 }

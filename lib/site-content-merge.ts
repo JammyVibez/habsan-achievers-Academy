@@ -111,6 +111,11 @@ export async function fetchMergedPublicSiteContent(): Promise<PublicSiteContent>
           ? patch.admissionsOffice
           : out[SITE_CONTENT_KEYS.admissions].admissionsOffice,
       };
+    } else if (row.key === SITE_CONTENT_KEYS.idCard) {
+      out[SITE_CONTENT_KEYS.idCard] = {
+        ...out[SITE_CONTENT_KEYS.idCard],
+        ...(p as Record<string, unknown>),
+      } as PublicSiteContent[typeof SITE_CONTENT_KEYS.idCard];
     }
   }
 

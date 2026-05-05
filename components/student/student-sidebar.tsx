@@ -9,6 +9,7 @@ import {
   Calendar,
   MessageSquare,
   ShoppingBag,
+  IdCard,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -19,6 +20,7 @@ const menuItems = [
   { icon: BookOpen, label: "My Subjects", href: "/student/subjects" },
   { icon: ClipboardList, label: "My Results", href: "/student/results" },
   { icon: Calendar, label: "Attendance", href: "/student/attendance" },
+  { icon: IdCard, label: "My ID Card", href: "/student/id-card" },
   { icon: ShoppingBag, label: "Marketplace", href: "/student/marketplace" },
   { icon: MessageSquare, label: "Messages", href: "/student/messages" },
 ]

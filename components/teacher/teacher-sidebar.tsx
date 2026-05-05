@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, BookOpen, ClipboardList, MessageSquare, Calendar, LogOut } from "lucide-react"
+import { LayoutDashboard, Users, BookOpen, ClipboardList, MessageSquare, Calendar, IdCard, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { dashboardLogout } from "@/lib/dashboard-logout"
 
@@ -12,6 +12,7 @@ const menuItems = [
   { icon: BookOpen, label: "My Subjects", href: "/teacher/subjects" },
   { icon: ClipboardList, label: "Results Entry", href: "/teacher/results" },
   { icon: Calendar, label: "Attendance", href: "/teacher/attendance" },
+  { icon: IdCard, label: "My ID Card", href: "/teacher/id-card" },
   { icon: MessageSquare, label: "Messages", href: "/teacher/messages" },
 ]
 

@@ -7,6 +7,7 @@ import { ContactInfoEditor } from "@/components/admin/cms/contact-info-editor"
 import { GalleryCmsEditor } from "@/components/admin/cms/gallery-cms-editor"
 import { CoreValuesEditor } from "@/components/admin/cms/core-values-editor"
 import { AdmissionsInfoEditor } from "@/components/admin/cms/admissions-info-editor"
+import { IdCardEditor } from "@/components/admin/cms/id-card-editor"
 
 export default function CMSPage() {
   return (
@@ -27,6 +28,7 @@ export default function CMSPage() {
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="gallery">Gallery</TabsTrigger>
           <TabsTrigger value="core">Core values</TabsTrigger>
+          <TabsTrigger value="id-card">ID card</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hero">
@@ -55,6 +57,10 @@ export default function CMSPage() {
 
         <TabsContent value="core">
           <CoreValuesEditor />
+        </TabsContent>
+
+        <TabsContent value="id-card">
+          <IdCardEditor />
         </TabsContent>
       </Tabs>
     </div>

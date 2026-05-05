@@ -16,6 +16,7 @@ import {
   Bell,
   School,
   UserCheck,
+  IdCard,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -32,6 +33,7 @@ const menuItems = [
   { icon: ClipboardList, label: "Results", href: "/admin/results" },
   { icon: UserCheck, label: "Admissions", href: "/admin/admissions-applications" },
   { icon: Key, label: "PIN Codes", href: "/admin/pins" },
+  { icon: IdCard, label: "My ID Card", href: "/admin/id-card" },
   { icon: Bell, label: "Noticeboard", href: "/admin/noticeboard" },
   { icon: ShoppingBag, label: "Marketplace", href: "/admin/marketplace" },
   { icon: MessageSquare, label: "Messages", href: "/admin/messages" },

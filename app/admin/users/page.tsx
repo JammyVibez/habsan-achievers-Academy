@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Search, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { getAdminUsersPageData } from '@/lib/admin-data';
 import { AdminUsersTable } from '@/components/admin/admin-users-table';
 
@@ -69,17 +68,9 @@ export default async function UsersPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>All Users</CardTitle>
-              <CardDescription>View and manage user accounts (live data)</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search users…" className="w-[250px] pl-8" disabled />
-              </div>
-            </div>
+          <div>
+            <CardTitle>All Users</CardTitle>
+            <CardDescription>View and manage user accounts (live data)</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

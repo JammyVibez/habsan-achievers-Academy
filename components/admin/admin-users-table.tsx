@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,21 @@ export function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [resultPassword, setResultPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredUsers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((user) => {
+      const name = `${user.firstName} ${user.lastName}`.trim().toLowerCase();
+      return (
+        name.includes(q) ||
+        user.email.toLowerCase().includes(q) ||
+        user.role.toLowerCase().includes(q) ||
+        (user.isActive ? 'active' : 'inactive').includes(q)
+      );
+    });
+  }, [users, searchTerm]);
 
   function openReset(u: AdminUserRow) {
     setTarget(u);
@@ -120,6 +135,13 @@ export function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
 
   return (
     <>
+      <div className="mb-4">
+        <Input
+          placeholder="Search users by name, email, role, status…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -132,14 +154,14 @@ export function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center text-muted-foreground">
-                No users yet.
+                No users match your search.
               </TableCell>
             </TableRow>
           ) : (
-            users.map((user) => {
+            filteredUsers.map((user) => {
               const name = `${user.firstName} ${user.lastName}`.trim();
               const statusLabel = user.isActive ? 'active' : 'inactive';
               return (

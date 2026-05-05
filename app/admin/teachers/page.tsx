@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,8 +40,25 @@ export default function AdminTeachersPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [teachers, setTeachers] = useState<ApiTeacher[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const filteredTeachers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return teachers;
+    return teachers.filter((teacher) => {
+      return (
+        teacher.staffId.toLowerCase().includes(q) ||
+        teacher.name.toLowerCase().includes(q) ||
+        teacher.email.toLowerCase().includes(q) ||
+        teacher.phone.toLowerCase().includes(q) ||
+        teacher.status.toLowerCase().includes(q) ||
+        teacher.subjects.some((s) => s.toLowerCase().includes(q)) ||
+        teacher.classes.some((c) => c.toLowerCase().includes(q))
+      );
+    });
+  }, [teachers, searchTerm]);
 
   const loadTeachers = useCallback(async () => {
     setLoading(true);
@@ -301,7 +318,12 @@ export default function AdminTeachersPage() {
             </div>
             <div className="relative w-full md:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search (coming soon)…" className="pl-8" disabled />
+              <Input
+                placeholder="Search staff, name, subject, class…"
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
         </CardHeader>
@@ -324,14 +346,14 @@ export default function AdminTeachersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {teachers.length === 0 ? (
+                  {filteredTeachers.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                        No teachers yet. Add one to get started.
+                        No teachers match your search.
                       </td>
                     </tr>
                   ) : (
-                    teachers.map((teacher) => (
+                    filteredTeachers.map((teacher) => (
                       <tr key={teacher.id} className="border-b">
                         <td className="px-4 py-3 text-sm font-medium">{teacher.staffId}</td>
                         <td className="px-4 py-3 text-sm">{teacher.name}</td>

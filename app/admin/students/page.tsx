@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,8 +38,26 @@ export default function AdminStudentsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [students, setStudents] = useState<ApiStudent[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [classFilter, setClassFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const filteredStudents = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return students.filter((student) => {
+      const classOk = classFilter === 'all' || student.classLabel === classFilter;
+      if (!classOk) return false;
+      if (!q) return true;
+      return (
+        student.admissionNumber.toLowerCase().includes(q) ||
+        student.name.toLowerCase().includes(q) ||
+        student.classLabel.toLowerCase().includes(q) ||
+        student.parentName.toLowerCase().includes(q) ||
+        student.parentPhone.toLowerCase().includes(q)
+      );
+    });
+  }, [students, searchTerm, classFilter]);
 
   const loadStudents = useCallback(async () => {
     setLoading(true);
@@ -302,20 +320,26 @@ export default function AdminStudentsPage() {
             <div className="flex gap-2">
               <div className="relative flex-1 md:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search (coming soon)…" className="pl-8" disabled />
+                <Input
+                  placeholder="Search by name, admission no, parent…"
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-              <Select defaultValue="all" disabled>
+              <Select value={classFilter} onValueChange={setClassFilter}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Classes</SelectItem>
-                  <SelectItem value="jss1">JSS 1</SelectItem>
-                  <SelectItem value="jss2">JSS 2</SelectItem>
-                  <SelectItem value="jss3">JSS 3</SelectItem>
-                  <SelectItem value="ss1">SS 1</SelectItem>
-                  <SelectItem value="ss2">SS 2</SelectItem>
-                  <SelectItem value="ss3">SS 3</SelectItem>
+                  {Array.from(new Set(students.map((s) => s.classLabel).filter(Boolean)))
+                    .sort((a, b) => a.localeCompare(b))
+                    .map((classLabel) => (
+                      <SelectItem key={classLabel} value={classLabel}>
+                        {classLabel}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -340,14 +364,14 @@ export default function AdminStudentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.length === 0 ? (
+                  {filteredStudents.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                        No students yet. Add one to get started.
+                        No students match your search/filter.
                       </td>
                     </tr>
                   ) : (
-                    students.map((student) => (
+                    filteredStudents.map((student) => (
                       <tr key={student.id} className="border-b">
                         <td className="px-4 py-3 text-sm font-medium">{student.admissionNumber}</td>
                         <td className="px-4 py-3 text-sm">{student.name}</td>

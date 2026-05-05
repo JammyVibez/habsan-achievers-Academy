@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Loader2, Info } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { isValidAdmissionNumber } from "@/lib/student-utils"
 
 export function LoginForm() {
@@ -128,20 +128,6 @@ export function LoginForm() {
           "Sign In"
         )}
       </Button>
-
-      <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm">
-        <div className="flex gap-2">
-          <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-blue-900 text-xs space-y-1">
-            <p className="font-semibold">Seed Credentials (after npm run db:seed):</p>
-            <p>Admin: admin@habsan.edu.ng / Admin@123</p>
-            <p>Teacher: teacher@habsan.edu.ng / Teach@1234</p>
-            <p>Student (email): john.doe@habsan.edu.ng / Student@12</p>
-            <p className="pt-2 font-semibold">Student (Admission Number):</p>
-            <p>Admission: HAA/2024/001 / Student@12</p>
-          </div>
-        </div>
-      </div>
     </form>
   )
 }

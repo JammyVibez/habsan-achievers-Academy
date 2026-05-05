@@ -8,7 +8,11 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentTermAndSession } from "@/lib/report-card"
 import { decimalToNumber } from "@/lib/grades"
 
-export default async function TeacherStudentsPage() {
+export default async function TeacherStudentsPage({
+  searchParams,
+}: {
+  searchParams?: { q?: string }
+}) {
   const user = await getCurrentUser()
   if (!user || user.role !== "teacher") redirect("/login")
   const teacher = await prisma.teacher.findUnique({
@@ -32,6 +36,17 @@ export default async function TeacherStudentsPage() {
     orderBy: { createdAt: "desc" },
     take: 300,
   })
+  const query = (searchParams?.q ?? "").trim().toLowerCase()
+  const filteredStudents = query
+    ? students.filter((student) => {
+        const fullName = `${student.user.firstName} ${student.user.lastName}`.toLowerCase()
+        return (
+          fullName.includes(query) ||
+          student.admissionNumber.toLowerCase().includes(query) ||
+          student.classLevel.toLowerCase().includes(query)
+        )
+      })
+    : students
 
   return (
     <div className="space-y-6">
@@ -46,19 +61,20 @@ export default async function TeacherStudentsPage() {
           <CardDescription>Students in your assigned subject classes and homeroom</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative">
+          <form className="relative" method="GET">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
-                disabled
-                placeholder="Live list (search coming soon)..."
-                className="h-10 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm text-muted-foreground"
+                name="q"
+                defaultValue={searchParams?.q ?? ""}
+                placeholder="Search by name, admission number, class..."
+                className="h-10 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm"
               />
             </div>
-          </div>
+          </form>
 
           <div className="space-y-3">
-            {students.map((student) => {
+            {filteredStudents.map((student) => {
               const scores = student.results ? student.results.map((r) => decimalToNumber(r.total)) : []
               const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "—"
               const attended = student.attendance.filter((a) => a.status === "present" || a.status === "late").length
@@ -92,6 +108,11 @@ export default async function TeacherStudentsPage() {
                 </div>
               </div>
             )})}
+            {filteredStudents.length === 0 ? (
+              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                No students match your search.
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>

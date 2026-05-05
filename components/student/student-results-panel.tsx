@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Download, Eye, EyeOff, Info, Loader } from 'lucide-react';
+import { AlertCircle, Download, Eye, EyeOff, Info, Loader, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ResultPayload = {
@@ -63,6 +63,7 @@ export function StudentResultsPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ResultPayload | null>(null);
+  const [subjectSearch, setSubjectSearch] = useState('');
   const [sessionTermOptions, setSessionTermOptions] = useState<
     Array<{ id: string; sessionName: string; terms: Array<{ id: string; termName: string }> }>
   >([]);
@@ -304,6 +305,11 @@ export function StudentResultsPanel() {
   }
 
   if (!results) return null;
+  const normalizedSubjectSearch = subjectSearch.trim().toLowerCase();
+  const filteredResultRows = results.results.filter((r) => {
+    if (!normalizedSubjectSearch) return true;
+    return r.subject.toLowerCase().includes(normalizedSubjectSearch);
+  });
 
   return (
     <Card>
@@ -340,6 +346,18 @@ export function StudentResultsPanel() {
           </div>
         </div>
 
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={subjectSearch}
+              onChange={(e) => setSubjectSearch(e.target.value)}
+              placeholder="Search subject..."
+              className="pl-9"
+            />
+          </div>
+        </div>
+
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead>
@@ -353,7 +371,7 @@ export function StudentResultsPanel() {
               </tr>
             </thead>
             <tbody>
-              {results.results.map((r, idx) => (
+              {filteredResultRows.map((r, idx) => (
                 <tr key={idx} className="border-b last:border-0">
                   <td className="p-2">{r.subject}</td>
                   <td className="p-2 text-center font-medium">{r.ca1}</td>
@@ -367,6 +385,13 @@ export function StudentResultsPanel() {
                   </td>
                 </tr>
               ))}
+              {filteredResultRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                    No subjects match your search.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

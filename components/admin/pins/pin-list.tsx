@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Copy, Loader2, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Copy, Loader2, RefreshCw, Share2, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 type PinRow = {
   id: string;
@@ -32,6 +34,11 @@ export function PINList({ type, refreshKey = 0 }: PINListProps) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPin, setSelectedPin] = useState<PinRow | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  const schoolName = 'HABSAN ACHIEVERS ACADEMY';
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(searchQuery.trim()), 350);
@@ -93,6 +100,73 @@ export function PINList({ type, refreshKey = 0 }: PINListProps) {
     } catch {
       /* ignore */
     }
+  }
+
+  const shareTitle = useMemo(
+    () => `${type === 'admission' ? 'Admission' : 'Result'} PIN Card`,
+    [type],
+  );
+
+  async function makeCardBlob(): Promise<Blob | null> {
+    if (!cardRef.current) return null;
+    const canvas = await html2canvas(cardRef.current, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+    });
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/png');
+    });
+  }
+
+  async function shareCard(pin: PinRow) {
+    setSelectedPin(pin);
+    setSharing(true);
+    try {
+      await new Promise((r) => window.setTimeout(r, 40));
+      const blob = await makeCardBlob();
+      if (!blob) throw new Error('Could not generate image');
+
+      const file = new File([blob], `${pin.pinType}-pin-${pin.pinCode}.png`, { type: 'image/png' });
+      const nav = navigator as Navigator & {
+        canShare?: (data: { files?: File[] }) => boolean;
+      };
+
+      if (nav.share && nav.canShare?.({ files: [file] })) {
+        await nav.share({
+          title: shareTitle,
+          text: `${schoolName}\n${pin.pinType.toUpperCase()} PIN: ${pin.pinCode}\nExpires: ${formatDate(pin.expiresAt)}`,
+          files: [file],
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${pin.pinType}-pin-${pin.pinCode}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      // keep interaction silent for cancelled share
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function downloadCard() {
+    if (!selectedPin) return;
+    const blob = await makeCardBlob();
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedPin.pinType}-pin-${selectedPin.pinCode}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -163,14 +237,80 @@ export function PINList({ type, refreshKey = 0 }: PINListProps) {
                     ) : null}
                   </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => void copyPin(pin.pinCode)} aria-label="Copy PIN">
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => void copyPin(pin.pinCode)} aria-label="Copy PIN">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => {
+                      setSelectedPin(pin);
+                      void shareCard(pin);
+                    }}
+                    aria-label="Share PIN card"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </CardContent>
+      <Dialog open={Boolean(selectedPin)} onOpenChange={(open) => !open && setSelectedPin(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Shareable PIN Card</DialogTitle>
+            <DialogDescription>
+              Share this card in any app. If direct share is unavailable, download and send manually.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPin ? (
+            <div className="space-y-3">
+              <div ref={cardRef} className="rounded-xl border bg-white p-4 text-black shadow-sm">
+                <p className="text-xs font-semibold tracking-[0.2em] text-slate-500">OFFICIAL PIN CARD</p>
+                <h3 className="mt-1 text-lg font-bold">{schoolName}</h3>
+                <p className="text-sm text-slate-600">{selectedPin.pinType === 'admission' ? 'Admission PIN' : 'Result PIN'}</p>
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">PIN CODE</p>
+                  <p className="font-mono text-xl font-bold tracking-wide">{selectedPin.pinCode}</p>
+                </div>
+                <div className="mt-3 space-y-1 text-sm">
+                  <p>
+                    <span className="font-semibold">Expires:</span> {formatDate(selectedPin.expiresAt)}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Status:</span> {selectedPin.effectiveStatus.toUpperCase()}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Issued:</span> {formatDate(selectedPin.createdAt)}
+                  </p>
+                </div>
+                <p className="mt-4 text-[11px] text-slate-500">
+                  Keep this PIN confidential. Use only on official school channels.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" onClick={() => void downloadCard()}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void shareCard(selectedPin)}
+                  disabled={sharing}
+                >
+                  {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+                  Share
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

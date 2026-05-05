@@ -6,8 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { MapPin, Phone, Mail, Clock } from "lucide-react"
+import { fetchMergedPublicSiteContent } from "@/lib/site-content-merge"
+import { SITE_CONTENT_KEYS } from "@/lib/site-content-keys"
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const siteContent = await fetchMergedPublicSiteContent()
+  const contact = siteContent[SITE_CONTENT_KEYS.contact]
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
@@ -78,7 +83,7 @@ export default function ContactPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold mb-1">Address</h3>
-                            <p className="text-muted-foreground">Plot 123, Education Avenue, Abuja, Nigeria</p>
+                            <p className="text-muted-foreground">{contact.address}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -92,8 +97,7 @@ export default function ContactPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold mb-1">Phone</h3>
-                            <p className="text-muted-foreground">+234-XXX-XXX-XXXX</p>
-                            <p className="text-muted-foreground">+234-XXX-XXX-XXXX (Admissions)</p>
+                            <p className="text-muted-foreground">{contact.phone}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -107,8 +111,7 @@ export default function ContactPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold mb-1">Email</h3>
-                            <p className="text-muted-foreground">info@habsan.edu.ng</p>
-                            <p className="text-muted-foreground">admissions@habsan.edu.ng</p>
+                            <p className="text-muted-foreground">{contact.email}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -122,9 +125,7 @@ export default function ContactPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold mb-1">Office Hours</h3>
-                            <p className="text-muted-foreground">Monday - Friday: 8:00 AM - 4:00 PM</p>
-                            <p className="text-muted-foreground">Saturday: 9:00 AM - 1:00 PM</p>
-                            <p className="text-muted-foreground">Sunday: Closed</p>
+                            <p className="text-muted-foreground">{contact.office_hours}</p>
                           </div>
                         </div>
                       </CardContent>

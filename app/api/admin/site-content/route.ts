@@ -36,6 +36,7 @@ export async function PUT(request: NextRequest) {
 
   revalidatePath('/');
   revalidatePath('/about');
+  revalidatePath('/contact');
   revalidatePath('/admissions');
   revalidatePath('/gallery');
 

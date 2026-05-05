@@ -143,13 +143,16 @@ export async function POST(request: NextRequest) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         const target = Array.isArray(error.meta?.target) ? error.meta?.target.map(String) : [];
         const asText = target.join(',');
+        const hasTeacherSubjectPairColumns = target.includes('teacher_id') && target.includes('subject_id');
+        const hasTeacherSubjectClassColumns =
+          target.includes('teacher_id') && target.includes('subject_id') && target.includes('class_level');
         if (asText.includes('users_email_key')) {
           return NextResponse.json({ error: 'Teacher email already exists' }, { status: 409 });
         }
         if (asText.includes('teachers_staff_id_key')) {
           return NextResponse.json({ error: 'Generated staff ID already exists. Please try again.' }, { status: 409 });
         }
-        if (asText.includes('teacher_subjects_teacher_id_subject_id_key')) {
+        if (asText.includes('teacher_subjects_teacher_id_subject_id_key') || hasTeacherSubjectPairColumns) {
           return NextResponse.json(
             {
               error:
@@ -158,7 +161,7 @@ export async function POST(request: NextRequest) {
             { status: 409 },
           );
         }
-        if (asText.includes('teacher_subjects_teacher_id_subject_id_class_level_key')) {
+        if (asText.includes('teacher_subjects_teacher_id_subject_id_class_level_key') || hasTeacherSubjectClassColumns) {
           return NextResponse.json({ error: 'Duplicate subject/class assignment was submitted.' }, { status: 409 });
         }
       }

@@ -152,6 +152,11 @@ export async function POST(request: NextRequest) {
         if (asText.includes('teachers_staff_id_key')) {
           return NextResponse.json({ error: 'Generated staff ID already exists. Please try again.' }, { status: 409 });
         }
+        if (asText.includes('teacher_subjects_teacher_id_subject_id_class_level_key') || hasTeacherSubjectClassColumns) {
+          return NextResponse.json({ error: 'Duplicate subject/class assignment was submitted.' }, { status: 409 });
+        }
+        // NOTE: check old 2-column constraint *after* 3-column match.
+        // `teacher_id` + `subject_id` is also a subset of the new 3-column target.
         if (asText.includes('teacher_subjects_teacher_id_subject_id_key') || hasTeacherSubjectPairColumns) {
           return NextResponse.json(
             {
@@ -161,11 +166,18 @@ export async function POST(request: NextRequest) {
             { status: 409 },
           );
         }
-        if (asText.includes('teacher_subjects_teacher_id_subject_id_class_level_key') || hasTeacherSubjectClassColumns) {
-          return NextResponse.json({ error: 'Duplicate subject/class assignment was submitted.' }, { status: 409 });
-        }
       }
-      return NextResponse.json({ error: 'A unique record already exists (email, staff ID, or assignment).' }, { status: 409 });
+      const debugTarget =
+        error instanceof Prisma.PrismaClientKnownRequestError && Array.isArray(error.meta?.target)
+          ? error.meta?.target.join(', ')
+          : '';
+      return NextResponse.json(
+        {
+          error: 'A unique record already exists (email, staff ID, or assignment).',
+          ...(debugTarget ? { details: `Unique target: ${debugTarget}` } : {}),
+        },
+        { status: 409 },
+      );
     }
     console.error('Teacher creation error:', error);
     return NextResponse.json({ error: 'Failed to create teacher account' }, { status: 500 });

@@ -1,5 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Search } from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { getCurrentUser } from "@/lib/current-user"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
@@ -80,6 +82,13 @@ export default async function TeacherStudentsPage() {
                     <p className="text-sm text-muted-foreground">Attendance</p>
                     <p className="font-semibold">{attendance}</p>
                   </div>
+                  <Button asChild size="sm">
+                    <Link
+                      href={`/teacher/results?studentId=${encodeURIComponent(student.id)}&admissionNumber=${encodeURIComponent(student.admissionNumber)}&studentName=${encodeURIComponent(`${student.user.firstName} ${student.user.lastName}`.trim())}&classLevel=${encodeURIComponent(student.classLevel)}`}
+                    >
+                      Enter Result
+                    </Link>
+                  </Button>
                 </div>
               </div>
             )})}

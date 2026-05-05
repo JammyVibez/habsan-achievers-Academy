@@ -19,7 +19,20 @@ interface StudentResult {
   exam: string;
 }
 
-export function ResultUploadForm() {
+type PrefillStudent = {
+  studentId: string;
+  admissionNumber: string;
+  studentName: string;
+  classLevel: string;
+};
+
+type ResultUploadFormProps = {
+  initialSubject?: string;
+  initialClass?: string;
+  prefillStudent?: PrefillStudent | null;
+};
+
+export function ResultUploadForm({ initialSubject = '', initialClass = '', prefillStudent = null }: ResultUploadFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -31,15 +44,15 @@ export function ResultUploadForm() {
   const [classStudents, setClassStudents] = useState<Array<{ id: string; admissionNumber: string; name: string }>>([]);
 
   const [formData, setFormData] = useState({
-    subject: '',
-    classAssigned: '',
+    subject: initialSubject,
+    classAssigned: initialClass,
     results: [] as StudentResult[],
   });
 
   const [tempResult, setTempResult] = useState<StudentResult>({
-    studentId: '',
-    admissionNumber: '',
-    studentName: '',
+    studentId: prefillStudent?.studentId ?? '',
+    admissionNumber: prefillStudent?.admissionNumber ?? '',
+    studentName: prefillStudent?.studentName ?? '',
     ca1: '',
     ca2: '',
     exam: '',
@@ -61,6 +74,20 @@ export function ResultUploadForm() {
     }
     void loadMeta();
   }, []);
+
+  useEffect(() => {
+    if (!prefillStudent) return;
+    setFormData((prev) => ({
+      ...prev,
+      classAssigned: prev.classAssigned || prefillStudent.classLevel,
+    }));
+    setTempResult((prev) => ({
+      ...prev,
+      studentId: prefillStudent.studentId,
+      admissionNumber: prefillStudent.admissionNumber,
+      studentName: prefillStudent.studentName,
+    }));
+  }, [prefillStudent]);
 
   useEffect(() => {
     const isTeacherScoped = assignments.length > 0;
@@ -163,9 +190,9 @@ export function ResultUploadForm() {
 
     // Reset temp result
     setTempResult({
-      studentId: '',
-      admissionNumber: '',
-      studentName: '',
+      studentId: prefillStudent?.studentId ?? '',
+      admissionNumber: prefillStudent?.admissionNumber ?? '',
+      studentName: prefillStudent?.studentName ?? '',
       ca1: '',
       ca2: '',
       exam: '',
@@ -188,7 +215,36 @@ export function ResultUploadForm() {
     try {
       if (!formData.subject) throw new Error('Subject is required');
       if (!formData.classAssigned) throw new Error('Class is required');
-      if (formData.results.length === 0) throw new Error('At least one student result is required');
+
+      let resultsToSubmit = formData.results;
+      // In prefilled single-student flow, allow direct submit from CA fields
+      // without requiring an extra "Add" click.
+      if (resultsToSubmit.length === 0 && prefillStudent) {
+        if (tempResult.ca1 === '' || Number.isNaN(parseFloat(tempResult.ca1))) {
+          throw new Error('Valid CA1 score is required');
+        }
+        if (tempResult.ca2 === '' || Number.isNaN(parseFloat(tempResult.ca2))) {
+          throw new Error('Valid CA2 score is required');
+        }
+        if (tempResult.exam === '' || Number.isNaN(parseFloat(tempResult.exam))) {
+          throw new Error('Valid exam score is required');
+        }
+        const ca1 = parseFloat(tempResult.ca1);
+        const ca2 = parseFloat(tempResult.ca2);
+        const exam = parseFloat(tempResult.exam);
+        if (ca1 < 0 || ca1 > 20) throw new Error('CA1 must be between 0 and 20');
+        if (ca2 < 0 || ca2 > 20) throw new Error('CA2 must be between 0 and 20');
+        if (exam < 0 || exam > 60) throw new Error('Exam must be between 0 and 60');
+
+        resultsToSubmit = [
+          {
+            ...tempResult,
+            studentId: tempResult.studentId || `student_${tempResult.admissionNumber}`,
+          },
+        ];
+      }
+
+      if (resultsToSubmit.length === 0) throw new Error('At least one student result is required');
 
       const response = await fetch('/api/results/upload', {
         method: 'POST',
@@ -197,7 +253,7 @@ export function ResultUploadForm() {
         body: JSON.stringify({
           subject: formData.subject,
           classAssigned: formData.classAssigned,
-          results: formData.results,
+          results: resultsToSubmit,
         }),
       });
 
@@ -302,7 +358,7 @@ export function ResultUploadForm() {
                   placeholder="HAA/2024/001"
                   value={tempResult.admissionNumber}
                   onChange={(e) => setTempResult({ ...tempResult, admissionNumber: e.target.value })}
-                  disabled={loading}
+                  disabled={loading || Boolean(prefillStudent)}
                   className="font-mono"
                 />
                 <datalist id="class-students-admission-list">
@@ -321,7 +377,7 @@ export function ResultUploadForm() {
                   placeholder="John Doe"
                   value={tempResult.studentName}
                   onChange={(e) => setTempResult({ ...tempResult, studentName: e.target.value })}
-                  disabled={loading}
+                  disabled={loading || Boolean(prefillStudent)}
                 />
               </div>
             </div>

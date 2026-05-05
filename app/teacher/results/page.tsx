@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -8,11 +9,25 @@ import { ResultUploadForm } from "@/components/teacher/result-upload-form"
 import { Plus, FileText } from "lucide-react"
 
 export default function TeacherResultsPage() {
+  const searchParams = useSearchParams()
+  const prefillStudent = searchParams.get("studentId")
+    ? {
+        studentId: searchParams.get("studentId") || "",
+        admissionNumber: searchParams.get("admissionNumber") || "",
+        studentName: searchParams.get("studentName") || "",
+        classLevel: searchParams.get("classLevel") || "",
+      }
+    : null
+
   const [showEntryForm, setShowEntryForm] = useState(false)
-  const [selectedClass, setSelectedClass] = useState("")
-  const [selectedSubject, setSelectedSubject] = useState("")
+  const [selectedClass, setSelectedClass] = useState(searchParams.get("classLevel") || "")
+  const [selectedSubject, setSelectedSubject] = useState(searchParams.get("subject") || "")
   const [stats, setStats] = useState({ students: 0, uploadedThisTerm: 0, pending: 0, subjects: 0 })
   const [recentUploads, setRecentUploads] = useState<Array<{ subject: string; classLevel: string; updatedAt: string }>>([])
+
+  useEffect(() => {
+    if (prefillStudent) setShowEntryForm(true)
+  }, [prefillStudent])
 
   useEffect(() => {
     async function load() {
@@ -83,7 +98,11 @@ export default function TeacherResultsPage() {
       </div>
 
       {showEntryForm ? (
-        <ResultUploadForm />
+        <ResultUploadForm
+          initialClass={selectedClass}
+          initialSubject={selectedSubject}
+          prefillStudent={prefillStudent}
+        />
       ) : (
         <Card>
           <CardHeader>

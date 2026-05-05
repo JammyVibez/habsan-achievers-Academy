@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
 import { isPrismaUniqueViolation } from '@/lib/prisma-errors';
@@ -139,7 +140,29 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (isPrismaUniqueViolation(error)) {
-      return NextResponse.json({ error: 'Email or staff ID already exists' }, { status: 409 });
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        const target = Array.isArray(error.meta?.target) ? error.meta?.target.map(String) : [];
+        const asText = target.join(',');
+        if (asText.includes('users_email_key')) {
+          return NextResponse.json({ error: 'Teacher email already exists' }, { status: 409 });
+        }
+        if (asText.includes('teachers_staff_id_key')) {
+          return NextResponse.json({ error: 'Generated staff ID already exists. Please try again.' }, { status: 409 });
+        }
+        if (asText.includes('teacher_subjects_teacher_id_subject_id_key')) {
+          return NextResponse.json(
+            {
+              error:
+                'Database still has old teacher-subject constraint (single class per subject). Apply latest migrations, then retry.',
+            },
+            { status: 409 },
+          );
+        }
+        if (asText.includes('teacher_subjects_teacher_id_subject_id_class_level_key')) {
+          return NextResponse.json({ error: 'Duplicate subject/class assignment was submitted.' }, { status: 409 });
+        }
+      }
+      return NextResponse.json({ error: 'A unique record already exists (email, staff ID, or assignment).' }, { status: 409 });
     }
     console.error('Teacher creation error:', error);
     return NextResponse.json({ error: 'Failed to create teacher account' }, { status: 500 });

@@ -48,6 +48,16 @@ export type PublicSiteContent = {
     textColor: string;
     footerText: string;
   };
+  [SITE_CONTENT_KEYS.systemSettings]: {
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+    resultNotifications: boolean;
+    admissionNotifications: boolean;
+    twoFactorAuth: boolean;
+    sessionTimeout: boolean;
+    sessionDurationMinutes: number;
+    auditLogging: boolean;
+  };
 };
 
 export function getDefaultPublicSiteContent(): PublicSiteContent {
@@ -138,6 +148,16 @@ export function getDefaultPublicSiteContent(): PublicSiteContent {
       backgroundColor: '#ffffff',
       textColor: '#0f172a',
       footerText: 'If found, please return to school management.',
+    },
+    [SITE_CONTENT_KEYS.systemSettings]: {
+      emailNotifications: true,
+      smsNotifications: true,
+      resultNotifications: true,
+      admissionNotifications: true,
+      twoFactorAuth: false,
+      sessionTimeout: true,
+      sessionDurationMinutes: 30,
+      auditLogging: true,
     },
   };
 }

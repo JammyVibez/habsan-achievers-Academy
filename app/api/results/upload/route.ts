@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ensureDefaultAcademicCalendar } from '@/lib/academic-calendar';
 import { getCurrentTermAndSession } from '@/lib/report-card';
 import { scoreToComment, scoreToGrade } from '@/lib/grades';
 import { getSessionFromRequest } from '@/lib/auth-session';
@@ -29,14 +30,19 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { subject, classAssigned, results } = data as {
+    const { subject, classAssigned, results, sessionId, termId } = data as {
       subject: string;
       classAssigned: string;
       results: ResultRow[];
+      sessionId?: string;
+      termId?: string;
     };
 
     if (!subject || !classAssigned || !results || results.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    if (!sessionId || !termId) {
+      return NextResponse.json({ error: 'Academic session and term are required.' }, { status: 400 });
     }
 
     const classNorm = classAssigned.trim();
@@ -99,11 +105,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const ctx = await getCurrentTermAndSession();
-    if (!ctx) {
+    let ctx;
+    try {
+      ctx = await resolveSessionAndTerm(String(sessionId), String(termId));
+    } catch (e) {
       return NextResponse.json(
-        { error: 'No current academic session or term configured. Run database seed or admin setup.' },
-        { status: 503 },
+        { error: e instanceof Error ? e.message : 'Invalid session/term selection' },
+        { status: 400 },
       );
     }
 

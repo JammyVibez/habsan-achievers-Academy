@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ResultUploadForm } from "@/components/teacher/result-upload-form"
+import { ManageResultsTable, type ManageResultRow } from "@/components/results/manage-results-table"
 import { Upload, Download } from "lucide-react"
 
 export default function AdminResultsPage() {
@@ -15,7 +16,8 @@ export default function AdminResultsPage() {
   const [selectedTerm, setSelectedTerm] = useState("")
   const [teachers, setTeachers] = useState<Array<{ id: string; name: string }>>([])
   const [sessions, setSessions] = useState<Array<{ id: string; sessionName: string; terms: Array<{ id: string; termName: string }> }>>([])
-  const [rows, setRows] = useState<Array<any>>([])
+  const [rows, setRows] = useState<ManageResultRow[]>([])
+  const [reloadKey, setReloadKey] = useState(0)
   const [classes, setClasses] = useState<string[]>([])
   const [loadingRows, setLoadingRows] = useState(false)
   const [bulkMessage, setBulkMessage] = useState("")
@@ -47,32 +49,33 @@ export default function AdminResultsPage() {
     void load()
   }, [])
 
-  useEffect(() => {
-    async function loadFiltersAndRows() {
-      setLoadingRows(true)
-      try {
-        const params = new URLSearchParams()
-        if (selectedSession) params.set("sessionId", selectedSession)
-        if (selectedTerm) params.set("termId", selectedTerm)
-        if (selectedTeacher && selectedTeacher !== "all") params.set("teacherId", selectedTeacher)
-        const res = await fetch(`/api/admin/results/list?${params.toString()}`, { credentials: "include" })
-        const data = await res.json()
-        if (!res.ok) return
-        const loadedSessions = Array.isArray(data.sessions) ? data.sessions : []
-        setSessions(loadedSessions)
-        setTeachers(Array.isArray(data.teachers) ? data.teachers : [])
-        setRows(Array.isArray(data.rows) ? data.rows : [])
-        if (!selectedSession && data.current?.sessionId) setSelectedSession(data.current.sessionId)
-        if (!selectedTerm && data.current?.termId) setSelectedTerm(data.current.termId)
-        const classSet = new Set<string>()
-        ;(data.rows ?? []).forEach((r: any) => classSet.add(r.classLevel))
-        setClasses(Array.from(classSet).sort())
-      } finally {
-        setLoadingRows(false)
-      }
+  const loadFiltersAndRows = useCallback(async () => {
+    setLoadingRows(true)
+    try {
+      const params = new URLSearchParams()
+      if (selectedSession) params.set("sessionId", selectedSession)
+      if (selectedTerm) params.set("termId", selectedTerm)
+      if (selectedTeacher && selectedTeacher !== "all") params.set("teacherId", selectedTeacher)
+      const res = await fetch(`/api/admin/results/list?${params.toString()}`, { credentials: "include" })
+      const data = await res.json()
+      if (!res.ok) return
+      const loadedSessions = Array.isArray(data.sessions) ? data.sessions : []
+      setSessions(loadedSessions)
+      setTeachers(Array.isArray(data.teachers) ? data.teachers : [])
+      setRows(Array.isArray(data.rows) ? data.rows : [])
+      if (!selectedSession && data.current?.sessionId) setSelectedSession(data.current.sessionId)
+      if (!selectedTerm && data.current?.termId) setSelectedTerm(data.current.termId)
+      const classSet = new Set<string>()
+      ;(data.rows ?? []).forEach((r: ManageResultRow) => classSet.add(r.classLevel))
+      setClasses(Array.from(classSet).sort())
+    } finally {
+      setLoadingRows(false)
     }
-    void loadFiltersAndRows()
   }, [selectedSession, selectedTerm, selectedTeacher])
+
+  useEffect(() => {
+    void loadFiltersAndRows()
+  }, [loadFiltersAndRows, reloadKey])
 
   const termsForSession = sessions.find((s) => s.id === selectedSession)?.terms ?? []
 
@@ -136,13 +139,13 @@ export default function AdminResultsPage() {
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="upload">Upload results</TabsTrigger>
-          <TabsTrigger value="by-class">By Class</TabsTrigger>
+          <TabsTrigger value="by-class">Manage uploaded</TabsTrigger>
           <TabsTrigger value="by-subject">By Subject</TabsTrigger>
           <TabsTrigger value="report-cards">Report Cards</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload">
-          <ResultUploadForm />
+          <ResultUploadForm onUploaded={() => setReloadKey((k) => k + 1)} />
         </TabsContent>
 
         <TabsContent value="overview">
@@ -227,39 +230,14 @@ export default function AdminResultsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="overflow-x-auto border rounded-md">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/60">
-                      <th className="p-2 text-left">Student</th>
-                      <th className="p-2 text-left">Adm No</th>
-                      <th className="p-2 text-left">Class</th>
-                      <th className="p-2 text-left">Subject</th>
-                      <th className="p-2 text-left">Total</th>
-                      <th className="p-2 text-left">Grade</th>
-                      <th className="p-2 text-left">Teacher</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(rows.filter((r) => (selectedClass ? r.classLevel === selectedClass : true))).slice(0, 500).map((r) => (
-                      <tr key={r.id} className="border-b">
-                        <td className="p-2">{r.studentName}</td>
-                        <td className="p-2 font-mono">{r.admissionNumber}</td>
-                        <td className="p-2">{r.classLevel}</td>
-                        <td className="p-2">{r.subject}</td>
-                        <td className="p-2">{r.total}</td>
-                        <td className="p-2">{r.grade ?? "—"}</td>
-                        <td className="p-2">{r.teacherName}</td>
-                      </tr>
-                    ))}
-                    {!loadingRows && rows.length === 0 && (
-                      <tr>
-                        <td className="p-3 text-muted-foreground" colSpan={7}>No uploaded results for this filter.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Edit or delete uploaded results if there was a mistake. Changes apply to the selected session and term.
+              </p>
+              <ManageResultsTable
+                loading={loadingRows}
+                rows={(selectedClass ? rows.filter((r) => r.classLevel === selectedClass) : rows).slice(0, 500)}
+                onRefresh={() => setReloadKey((k) => k + 1)}
+              />
             </CardContent>
           </Card>
         </TabsContent>

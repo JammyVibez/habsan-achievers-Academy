@@ -116,6 +116,11 @@ export async function fetchMergedPublicSiteContent(): Promise<PublicSiteContent>
         ...out[SITE_CONTENT_KEYS.idCard],
         ...(p as Record<string, unknown>),
       } as PublicSiteContent[typeof SITE_CONTENT_KEYS.idCard];
+    } else if (row.key === SITE_CONTENT_KEYS.systemSettings) {
+      out[SITE_CONTENT_KEYS.systemSettings] = {
+        ...out[SITE_CONTENT_KEYS.systemSettings],
+        ...(p as Record<string, unknown>),
+      } as PublicSiteContent[typeof SITE_CONTENT_KEYS.systemSettings];
     }
   }
 

@@ -284,7 +284,11 @@ export function StudentResultsPanel() {
               </div>
             </div>
 
-            <Button type="submit" disabled={loading || !pin.trim()} className="w-full">
+            <Button
+              type="submit"
+              disabled={loading || !pin.trim() || !selectedSessionId || !selectedTermId}
+              className="w-full"
+            >
               {loading ? (
                 <>
                   <Loader className="mr-2 h-4 w-4 animate-spin" />

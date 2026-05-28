@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth-session';
 import { validateResultCheckingPin } from '@/lib/issued-result-pin';
+import { listAcademicSessionOptions, resolveSessionAndTerm } from '@/lib/academic-calendar';
 import { buildReportCardForStudent, getCurrentTermAndSession } from '@/lib/report-card';
 
 export const dynamic = 'force-dynamic';
@@ -33,24 +34,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Student record not found' }, { status: 404 });
   }
 
-  const sessions = await prisma.academicSession.findMany({
-    orderBy: { startDate: 'desc' },
-    include: {
-      terms: {
-        orderBy: { startDate: 'asc' },
-        select: { id: true, termName: true, isCurrent: true },
-      },
-    },
-  });
+  const sessions = await listAcademicSessionOptions();
   const current = await getCurrentTermAndSession();
 
   return NextResponse.json({
-    sessions: sessions.map((s) => ({
-      id: s.id,
-      sessionName: s.sessionName,
-      isCurrent: s.isCurrent,
-      terms: s.terms,
-    })),
+    sessions,
     current: current
       ? {
           sessionId: current.session.id,
@@ -101,31 +89,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Student record not found' }, { status: 404 });
   }
 
+  if (!body.sessionId || !body.termId) {
+    return NextResponse.json({ error: 'Please select academic session and term.' }, { status: 400 });
+  }
+
   let selectedSessionId: string;
   let selectedTermId: string;
-  if (body.sessionId || body.termId) {
-    if (!body.sessionId || !body.termId) {
-      return NextResponse.json({ error: 'Select both session and term' }, { status: 400 });
-    }
-    const term = await prisma.term.findFirst({
-      where: { id: body.termId, sessionId: body.sessionId },
-      select: { id: true, sessionId: true },
-    });
-    if (!term) {
-      return NextResponse.json({ error: 'Invalid session/term selection' }, { status: 400 });
-    }
-    selectedSessionId = term.sessionId;
-    selectedTermId = term.id;
-  } else {
-    const ctx = await getCurrentTermAndSession();
-    if (!ctx) {
-      return NextResponse.json(
-        { error: 'Results are not available yet (academic calendar not configured).' },
-        { status: 503 },
-      );
-    }
-    selectedSessionId = ctx.session.id;
-    selectedTermId = ctx.term.id;
+  try {
+    const resolved = await resolveSessionAndTerm(String(body.sessionId), String(body.termId));
+    selectedSessionId = resolved.session.id;
+    selectedTermId = resolved.term.id;
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Invalid session/term selection' },
+      { status: 400 },
+    );
   }
 
   const studentResults = await buildReportCardForStudent(student.id, selectedTermId, selectedSessionId);

@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle, Download, Loader, Eye, EyeOff, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SessionTermPicker } from '@/components/academic/session-term-picker';
+import type { AcademicSessionOption } from '@/lib/academic-calendar-types';
 
 interface ResultData {
   studentName: string;
@@ -50,9 +51,7 @@ export function AdvancedResultChecker() {
   });
 
   const [results, setResults] = useState<ResultData | null>(null);
-  const [sessionTermOptions, setSessionTermOptions] = useState<
-    Array<{ id: string; sessionName: string; terms: Array<{ id: string; termName: string }> }>
-  >([]);
+  const [sessionTermOptions, setSessionTermOptions] = useState<AcademicSessionOption[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [selectedTermId, setSelectedTermId] = useState('');
 
@@ -62,9 +61,14 @@ export function AdvancedResultChecker() {
         const response = await fetch('/api/results/check');
         const data = await response.json();
         if (!response.ok) return;
-        setSessionTermOptions(data.sessions ?? []);
+        const rows = Array.isArray(data.sessions) ? data.sessions : [];
+        setSessionTermOptions(rows);
         if (data.current?.sessionId) setSelectedSessionId(data.current.sessionId);
         if (data.current?.termId) setSelectedTermId(data.current.termId);
+        else if (rows[0]) {
+          setSelectedSessionId(rows[0].id);
+          setSelectedTermId(rows[0].terms[0]?.id ?? '');
+        }
       } catch {
         // no-op: user can still attempt with current session/term fallback server-side
       }
@@ -284,7 +288,7 @@ export function AdvancedResultChecker() {
 
               <Button 
                 type="submit" 
-                disabled={loading || !formData.admissionNumber || !formData.pin} 
+                disabled={loading || !formData.admissionNumber || !formData.pin || !selectedSessionId || !selectedTermId} 
                 className="w-full bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (

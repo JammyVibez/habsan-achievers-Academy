@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ResultUploadForm } from "@/components/teacher/result-upload-form"
+import { TeacherManageResults } from "@/components/teacher/teacher-manage-results"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, FileText } from "lucide-react"
 
 export default function TeacherResultsPage() {
@@ -20,6 +22,7 @@ export default function TeacherResultsPage() {
     : null
 
   const [showEntryForm, setShowEntryForm] = useState(false)
+  const [uploadRefreshKey, setUploadRefreshKey] = useState(0)
   const [selectedClass, setSelectedClass] = useState(searchParams.get("classLevel") || "")
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get("subject") || "")
   const [stats, setStats] = useState({ students: 0, uploadedThisTerm: 0, pending: 0, subjects: 0 })
@@ -98,11 +101,23 @@ export default function TeacherResultsPage() {
       </div>
 
       {showEntryForm ? (
-        <ResultUploadForm
-          initialClass={selectedClass}
-          initialSubject={selectedSubject}
-          prefillStudent={prefillStudent}
-        />
+        <Tabs defaultValue="upload" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
+            <TabsTrigger value="manage">Manage uploaded</TabsTrigger>
+          </TabsList>
+          <TabsContent value="upload">
+            <ResultUploadForm
+              initialClass={selectedClass}
+              initialSubject={selectedSubject}
+              prefillStudent={prefillStudent}
+              onUploaded={() => setUploadRefreshKey((k) => k + 1)}
+            />
+          </TabsContent>
+          <TabsContent value="manage">
+            <TeacherManageResults key={uploadRefreshKey} />
+          </TabsContent>
+        </Tabs>
       ) : (
         <Card>
           <CardHeader>

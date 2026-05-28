@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertCircle, CheckCircle, Plus, Trash2, Upload, Loader } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { scoreToGrade } from '@/lib/grades';
+import { SessionTermPicker } from '@/components/academic/session-term-picker';
+import type { AcademicSessionOption } from '@/lib/academic-calendar-types';
 
 interface StudentResult {
   studentId: string;
@@ -30,9 +32,15 @@ type ResultUploadFormProps = {
   initialSubject?: string;
   initialClass?: string;
   prefillStudent?: PrefillStudent | null;
+  onUploaded?: () => void;
 };
 
-export function ResultUploadForm({ initialSubject = '', initialClass = '', prefillStudent = null }: ResultUploadFormProps) {
+export function ResultUploadForm({
+  initialSubject = '',
+  initialClass = '',
+  prefillStudent = null,
+  onUploaded,
+}: ResultUploadFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -42,6 +50,9 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
   const [classLevels, setClassLevels] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<Array<{ subject: string; classLevel: string }>>([]);
   const [classStudents, setClassStudents] = useState<Array<{ id: string; admissionNumber: string; name: string }>>([]);
+  const [sessions, setSessions] = useState<AcademicSessionOption[]>([]);
+  const [sessionId, setSessionId] = useState('');
+  const [termId, setTermId] = useState('');
 
   const [formData, setFormData] = useState({
     subject: initialSubject,
@@ -68,6 +79,14 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
         setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
         setClassLevels(Array.isArray(data.classes) ? data.classes : []);
         setAssignments(Array.isArray(data.assignments) ? data.assignments : []);
+        const sessionRows = Array.isArray(data.sessions) ? (data.sessions as AcademicSessionOption[]) : [];
+        setSessions(sessionRows);
+        if (data.current?.sessionId) setSessionId(data.current.sessionId);
+        if (data.current?.termId) setTermId(data.current.termId);
+        else if (sessionRows[0]) {
+          setSessionId(sessionRows[0].id);
+          setTermId(sessionRows[0].terms[0]?.id ?? '');
+        }
       } finally {
         setMetaLoading(false);
       }
@@ -215,6 +234,9 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
     try {
       if (!formData.subject) throw new Error('Subject is required');
       if (!formData.classAssigned) throw new Error('Class is required');
+      if (!sessionId || !termId) {
+        throw new Error('Please select academic session and term for these results.');
+      }
 
       let resultsToSubmit = formData.results;
       // In prefilled single-student flow, allow direct submit from CA fields
@@ -253,6 +275,8 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
         body: JSON.stringify({
           subject: formData.subject,
           classAssigned: formData.classAssigned,
+          sessionId,
+          termId,
           results: resultsToSubmit,
         }),
       });
@@ -265,6 +289,7 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
 
       setSuccess(true);
       setSuccessMessage(data.message);
+      onUploaded?.();
 
       // Reset form
       setFormData({
@@ -305,6 +330,15 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
               <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
             </Alert>
           )}
+
+          <SessionTermPicker
+            sessions={sessions}
+            sessionId={sessionId}
+            termId={termId}
+            onSessionChange={setSessionId}
+            onTermChange={setTermId}
+            disabled={loading}
+          />
 
           {/* Subject and Class Selection */}
           <div className="grid grid-cols-2 gap-4">
@@ -532,7 +566,12 @@ export function ResultUploadForm({ initialSubject = '', initialClass = '', prefi
             </Button>
             <Button
               type="submit"
-              disabled={loading || formData.results.length === 0}
+              disabled={
+                loading ||
+                !sessionId ||
+                !termId ||
+                (formData.results.length === 0 && !prefillStudent)
+              }
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {loading ? (

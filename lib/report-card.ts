@@ -130,13 +130,31 @@ export async function getCurrentTermAndSession(): Promise<{
   term: { id: string; termName: string; startDate: Date; endDate: Date };
   session: { id: string; sessionName: string };
 } | null> {
-  const session = await prisma.academicSession.findFirst({
+  let session = await prisma.academicSession.findFirst({
     where: { isCurrent: true },
     orderBy: { startDate: 'desc' },
     include: {
       terms: { where: { isCurrent: true }, take: 1 },
     },
   });
+
+  if (!session) {
+    session = await prisma.academicSession.findFirst({
+      orderBy: { startDate: 'desc' },
+      include: {
+        terms: { orderBy: { startDate: 'desc' }, take: 1 },
+      },
+    });
+  } else if (session.terms.length === 0) {
+    const fallbackTerm = await prisma.term.findFirst({
+      where: { sessionId: session.id },
+      orderBy: { startDate: 'desc' },
+    });
+    session = {
+      ...session,
+      terms: fallbackTerm ? [fallbackTerm] : [],
+    };
+  }
 
   if (!session) return null;
   const term = session.terms[0];

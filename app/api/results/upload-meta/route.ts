@@ -55,5 +55,7 @@ export async function GET(request: NextRequest) {
     assignments,
     homeroomClass: teacher.homeroomClass?.trim() || null,
     role: 'teacher',
+    sessions,
+    current: current ? { sessionId: current.session.id, termId: current.term.id } : null,
   });
 }

@@ -215,44 +215,14 @@ export function AdvancedResultChecker() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Academic session</Label>
-                <Select
-                  value={selectedSessionId}
-                  onValueChange={(value) => {
-                    setSelectedSessionId(value);
-                    const firstTerm = sessionTermOptions.find((s) => s.id === value)?.terms[0];
-                    setSelectedTermId(firstTerm?.id ?? '');
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select session" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessionTermOptions.map((session) => (
-                      <SelectItem key={session.id} value={session.id}>
-                        {session.sessionName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Term</Label>
-                <Select value={selectedTermId} onValueChange={setSelectedTermId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select term" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(sessionTermOptions.find((s) => s.id === selectedSessionId)?.terms ?? []).map((term) => (
-                      <SelectItem key={term.id} value={term.id}>
-                        {term.termName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <SessionTermPicker
+                sessions={sessionTermOptions}
+                sessionId={selectedSessionId}
+                termId={selectedTermId}
+                onSessionChange={setSelectedSessionId}
+                onTermChange={setSelectedTermId}
+                disabled={loading}
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="pin">Result Checking PIN *</Label>

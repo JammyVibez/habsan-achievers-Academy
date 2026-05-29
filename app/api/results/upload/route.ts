@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { ensureDefaultAcademicCalendar } from '@/lib/academic-calendar';
-import { getCurrentTermAndSession } from '@/lib/report-card';
+import { resolveSessionAndTerm } from '@/lib/academic-calendar';
 import { scoreToComment, scoreToGrade } from '@/lib/grades';
 import { getSessionFromRequest } from '@/lib/auth-session';
 

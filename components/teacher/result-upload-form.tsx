@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,7 @@ export function ResultUploadForm({
   const [sessions, setSessions] = useState<AcademicSessionOption[]>([]);
   const [sessionId, setSessionId] = useState('');
   const [termId, setTermId] = useState('');
+  const [metaRole, setMetaRole] = useState<'admin' | 'teacher'>('teacher');
 
   const [formData, setFormData] = useState({
     subject: initialSubject,
@@ -69,30 +70,42 @@ export function ResultUploadForm({
     exam: '',
   });
 
-  useEffect(() => {
-    async function loadMeta() {
-      setMetaLoading(true);
-      try {
-        const res = await fetch('/api/results/upload-meta', { credentials: 'include' });
-        const data = await res.json();
-        if (!res.ok) return;
-        setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
-        setClassLevels(Array.isArray(data.classes) ? data.classes : []);
-        setAssignments(Array.isArray(data.assignments) ? data.assignments : []);
-        const sessionRows = Array.isArray(data.sessions) ? (data.sessions as AcademicSessionOption[]) : [];
-        setSessions(sessionRows);
-        if (data.current?.sessionId) setSessionId(data.current.sessionId);
-        if (data.current?.termId) setTermId(data.current.termId);
-        else if (sessionRows[0]) {
-          setSessionId(sessionRows[0].id);
-          setTermId(sessionRows[0].terms[0]?.id ?? '');
-        }
-      } finally {
-        setMetaLoading(false);
+  const loadMeta = useCallback(async () => {
+    setMetaLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/results/upload-meta', { credentials: 'include', cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Could not load upload options.');
+        return;
       }
+      setMetaRole(data.role === 'admin' ? 'admin' : 'teacher');
+      setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+      setClassLevels(Array.isArray(data.classes) ? data.classes : []);
+      setAssignments(Array.isArray(data.assignments) ? data.assignments : []);
+      const sessionRows = Array.isArray(data.sessions) ? (data.sessions as AcademicSessionOption[]) : [];
+      setSessions(sessionRows);
+      if (data.current?.sessionId) {
+        setSessionId(data.current.sessionId);
+        setTermId(data.current.termId);
+      } else if (sessionRows[0]) {
+        setSessionId(sessionRows[0].id);
+        setTermId(sessionRows[0].terms[0]?.id ?? '');
+      } else {
+        setSessionId('');
+        setTermId('');
+      }
+    } catch {
+      setError('Could not load upload options. Check your connection and try again.');
+    } finally {
+      setMetaLoading(false);
     }
-    void loadMeta();
   }, []);
+
+  useEffect(() => {
+    void loadMeta();
+  }, [loadMeta]);
 
   useEffect(() => {
     if (!prefillStudent) return;
@@ -331,22 +344,36 @@ export function ResultUploadForm({
             </Alert>
           )}
 
-          <SessionTermPicker
-            sessions={sessions}
-            sessionId={sessionId}
-            termId={termId}
-            onSessionChange={setSessionId}
-            onTermChange={setTermId}
-            disabled={loading}
-          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <SessionTermPicker
+              sessions={sessions}
+              sessionId={sessionId}
+              termId={termId}
+              onSessionChange={setSessionId}
+              onTermChange={setTermId}
+              disabled={loading || metaLoading}
+            />
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadMeta()} disabled={metaLoading}>
+              Refresh sessions
+            </Button>
+          </div>
+          {sessions.length === 0 && !metaLoading ? (
+            <p className="text-sm text-muted-foreground">
+              After adding a session/term in Admin → Settings → Academic, click <strong>Refresh sessions</strong> above.
+            </p>
+          ) : null}
 
           {/* Subject and Class Selection */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="subject">Subject *</Label>
-              <Select value={formData.subject} onValueChange={(value) => setFormData({ ...formData, subject: value })}>
-                <SelectTrigger id="subject" disabled={loading}>
-                  <SelectValue placeholder="Select subject" />
+              <Select
+                value={formData.subject}
+                onValueChange={(value) => setFormData({ ...formData, subject: value })}
+                disabled={loading || metaLoading}
+              >
+                <SelectTrigger id="subject" disabled={loading || metaLoading}>
+                  <SelectValue placeholder={subjects.length ? 'Select subject' : 'No subjects available'} />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((subject) => (
@@ -356,6 +383,17 @@ export function ResultUploadForm({
                   ))}
                 </SelectContent>
               </Select>
+              {metaRole === 'teacher' && subjects.length === 0 && !metaLoading ? (
+                <p className="text-xs text-amber-700">
+                  No subjects are linked to your teacher account. Admin must assign subjects/classes under Admin → Teachers
+                  (edit teacher → subject/class assignments).
+                </p>
+              ) : null}
+              {metaRole === 'admin' && subjects.length === 0 && !metaLoading ? (
+                <p className="text-xs text-amber-700">
+                  No active subjects in the system. Add subjects under Admin → Subjects first.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">

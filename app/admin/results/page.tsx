@@ -145,7 +145,7 @@ export default function AdminResultsPage() {
         </TabsList>
 
         <TabsContent value="upload">
-          <ResultUploadForm onUploaded={() => setReloadKey((k) => k + 1)} />
+          <ResultUploadForm key={reloadKey} onUploaded={() => setReloadKey((k) => k + 1)} />
         </TabsContent>
 
         <TabsContent value="overview">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { listAcademicSessionOptions, resolveSessionAndTerm } from '@/lib/academic-calendar';
 import { buildReportCardForStudent, getCurrentTermAndSession } from '@/lib/report-card';
 import { validateResultCheckingPin } from '@/lib/issued-result-pin';
 

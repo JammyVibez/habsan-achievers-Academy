@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth-session';
 import { getClassCatalog } from '@/lib/class-catalog';
+import { listAcademicSessionOptions } from '@/lib/academic-calendar';
+import { getCurrentTermAndSession } from '@/lib/report-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +22,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const [sessions, current] = await Promise.all([listAcademicSessionOptions(), getCurrentTermAndSession()]);
+
+  const sessionPayload = {
+    sessions,
+    current: current ? { sessionId: current.session.id, termId: current.term.id } : null,
+  };
+
   if (user.role === 'admin') {
     const [subjects, classes] = await Promise.all([
       prisma.subject.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { name: true } }),
@@ -30,6 +39,7 @@ export async function GET(request: NextRequest) {
       classes,
       assignments: null as UploadMetaAssignment[] | null,
       role: 'admin',
+      ...sessionPayload,
     });
   }
 
@@ -55,7 +65,6 @@ export async function GET(request: NextRequest) {
     assignments,
     homeroomClass: teacher.homeroomClass?.trim() || null,
     role: 'teacher',
-    sessions,
-    current: current ? { sessionId: current.session.id, termId: current.term.id } : null,
+    ...sessionPayload,
   });
 }

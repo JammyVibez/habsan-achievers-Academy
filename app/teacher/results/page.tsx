@@ -65,7 +65,7 @@ export default function TeacherResultsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-heading font-bold text-3xl mb-2">Results Entry</h2>
-          <p className="text-muted-foreground">Enter and manage student results</p>
+          <p className="text-muted-foreground">Enter scores for a whole class at once, then upload</p>
         </div>
         <Button onClick={() => setShowEntryForm(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -103,7 +103,7 @@ export default function TeacherResultsPage() {
       {showEntryForm ? (
         <Tabs defaultValue="upload" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="upload">Upload</TabsTrigger>
+            <TabsTrigger value="upload">Enter scores</TabsTrigger>
             <TabsTrigger value="manage">Manage uploaded</TabsTrigger>
           </TabsList>
           <TabsContent value="upload">

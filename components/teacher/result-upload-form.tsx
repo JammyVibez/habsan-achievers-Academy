@@ -1,25 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, CheckCircle, Plus, Trash2, Upload, Loader } from 'lucide-react';
+import { AlertCircle, CheckCircle, Upload, Loader, Users, ClipboardList } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { scoreToGrade } from '@/lib/grades';
 import { SessionTermPicker } from '@/components/academic/session-term-picker';
 import type { AcademicSessionOption } from '@/lib/academic-calendar-types';
+import {
+  classLevelsForPickerValue,
+  toClassPickerOptions,
+  toClassPickerValue,
+} from '@/lib/class-groups';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
-interface StudentResult {
+type StudentScoreRow = {
   studentId: string;
   admissionNumber: string;
   studentName: string;
+  classLevel: string;
   ca1: string;
   ca2: string;
   exam: string;
-}
+};
 
 type PrefillStudent = {
   studentId: string;
@@ -35,40 +43,269 @@ type ResultUploadFormProps = {
   onUploaded?: () => void;
 };
 
+function gradeBadgeClass(grade: string) {
+  switch (grade) {
+    case 'A':
+      return 'bg-green-100 text-green-800';
+    case 'B':
+      return 'bg-blue-100 text-blue-800';
+    case 'C':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'D':
+      return 'bg-orange-100 text-orange-800';
+    case 'E':
+      return 'bg-amber-100 text-amber-800';
+    default:
+      return 'bg-red-100 text-red-800';
+  }
+}
+
+function rowTotal(row: Pick<StudentScoreRow, 'ca1' | 'ca2' | 'exam'>) {
+  return Number(row.ca1 || 0) + Number(row.ca2 || 0) + Number(row.exam || 0);
+}
+
+function rowHasScores(row: StudentScoreRow) {
+  return row.ca1 !== '' || row.ca2 !== '' || row.exam !== '';
+}
+
+function rowIsComplete(row: StudentScoreRow) {
+  return row.ca1 !== '' && row.ca2 !== '' && row.exam !== '';
+}
+
+function validateScoreRow(row: StudentScoreRow): string | null {
+  if (!rowIsComplete(row)) return null;
+
+  const ca1 = parseFloat(row.ca1);
+  const ca2 = parseFloat(row.ca2);
+  const exam = parseFloat(row.exam);
+
+  if (Number.isNaN(ca1) || Number.isNaN(ca2) || Number.isNaN(exam)) {
+    return `Invalid scores for ${row.studentName}`;
+  }
+  if (ca1 < 0 || ca1 > 20) return `CA1 for ${row.studentName} must be between 0 and 20`;
+  if (ca2 < 0 || ca2 > 20) return `CA2 for ${row.studentName} must be between 0 and 20`;
+  if (exam < 0 || exam > 60) return `Exam for ${row.studentName} must be between 0 and 60`;
+
+  return null;
+}
+
+type ScoreFieldsProps = {
+  row: StudentScoreRow;
+  loading: boolean;
+  onUpdate: (field: 'ca1' | 'ca2' | 'exam', value: string) => void;
+  layout?: 'inline' | 'grid';
+};
+
+function ScoreFields({ row, loading, onUpdate, layout = 'grid' }: ScoreFieldsProps) {
+  const inputClass = layout === 'inline' ? 'h-9 text-center' : 'h-9 w-full text-center';
+
+  return (
+    <div className={cn(layout === 'grid' ? 'grid grid-cols-3 gap-2' : 'flex gap-2')}>
+      <div className="space-y-1">
+        {layout === 'grid' ? <Label className="text-xs text-muted-foreground">CA1</Label> : null}
+        <Input
+          type="number"
+          min="0"
+          max="20"
+          step="0.5"
+          placeholder="—"
+          aria-label={`CA1 for ${row.studentName}`}
+          value={row.ca1}
+          onChange={(e) => onUpdate('ca1', e.target.value)}
+          disabled={loading}
+          className={inputClass}
+        />
+      </div>
+      <div className="space-y-1">
+        {layout === 'grid' ? <Label className="text-xs text-muted-foreground">CA2</Label> : null}
+        <Input
+          type="number"
+          min="0"
+          max="20"
+          step="0.5"
+          placeholder="—"
+          aria-label={`CA2 for ${row.studentName}`}
+          value={row.ca2}
+          onChange={(e) => onUpdate('ca2', e.target.value)}
+          disabled={loading}
+          className={inputClass}
+        />
+      </div>
+      <div className="space-y-1">
+        {layout === 'grid' ? <Label className="text-xs text-muted-foreground">Exam</Label> : null}
+        <Input
+          type="number"
+          min="0"
+          max="60"
+          step="0.5"
+          placeholder="—"
+          aria-label={`Exam for ${row.studentName}`}
+          value={row.exam}
+          onChange={(e) => onUpdate('exam', e.target.value)}
+          disabled={loading}
+          className={inputClass}
+        />
+      </div>
+    </div>
+  );
+}
+
+type StudentRowProps = {
+  row: StudentScoreRow;
+  index: number;
+  loading: boolean;
+  isPrefillTarget: boolean;
+  showStream: boolean;
+  onUpdate: (admissionNumber: string, field: 'ca1' | 'ca2' | 'exam', value: string) => void;
+  rowRef?: React.RefObject<HTMLDivElement | HTMLTableRowElement | null>;
+};
+
+function StudentTableRow({ row, index, loading, isPrefillTarget, showStream, onUpdate, rowRef }: StudentRowProps) {
+  const total = rowTotal(row);
+  const hasAnyScore = rowHasScores(row);
+  const complete = rowIsComplete(row);
+  const grade = hasAnyScore && complete ? scoreToGrade(total) : null;
+
+  return (
+    <tr
+      ref={rowRef as React.RefObject<HTMLTableRowElement>}
+      className={cn(
+        'border-b transition-colors',
+        isPrefillTarget && 'bg-primary/5 ring-1 ring-inset ring-primary/20',
+        complete && 'bg-green-50/40',
+      )}
+    >
+      <td className="p-3 text-muted-foreground">{index + 1}</td>
+      <td className="p-3 font-mono text-xs text-blue-700">{row.admissionNumber}</td>
+      <td className="p-3">
+        <span className="font-medium">{row.studentName}</span>
+        {showStream ? (
+          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{row.classLevel}</span>
+        ) : null}
+      </td>
+      <td className="p-2">
+        <Input
+          type="number"
+          min="0"
+          max="20"
+          step="0.5"
+          placeholder="—"
+          value={row.ca1}
+          onChange={(e) => onUpdate(row.admissionNumber, 'ca1', e.target.value)}
+          disabled={loading}
+          className="h-9 w-full min-w-[72px] text-center"
+        />
+      </td>
+      <td className="p-2">
+        <Input
+          type="number"
+          min="0"
+          max="20"
+          step="0.5"
+          placeholder="—"
+          value={row.ca2}
+          onChange={(e) => onUpdate(row.admissionNumber, 'ca2', e.target.value)}
+          disabled={loading}
+          className="h-9 w-full min-w-[72px] text-center"
+        />
+      </td>
+      <td className="p-2">
+        <Input
+          type="number"
+          min="0"
+          max="60"
+          step="0.5"
+          placeholder="—"
+          value={row.exam}
+          onChange={(e) => onUpdate(row.admissionNumber, 'exam', e.target.value)}
+          disabled={loading}
+          className="h-9 w-full min-w-[72px] text-center"
+        />
+      </td>
+      <td className="p-3 text-center font-semibold text-primary">{hasAnyScore ? total.toFixed(1) : '—'}</td>
+      <td className="p-3 text-center">
+        {grade ? (
+          <span className={cn('inline-block rounded px-2 py-0.5 text-xs font-bold', gradeBadgeClass(grade))}>
+            {grade}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function StudentScoreCard({ row, index, loading, isPrefillTarget, showStream, onUpdate, rowRef }: StudentRowProps) {
+  const total = rowTotal(row);
+  const hasAnyScore = rowHasScores(row);
+  const complete = rowIsComplete(row);
+  const grade = hasAnyScore && complete ? scoreToGrade(total) : null;
+
+  return (
+    <div
+      ref={rowRef as React.RefObject<HTMLDivElement>}
+      className={cn(
+        'rounded-lg border bg-card p-4 space-y-3 shadow-sm',
+        isPrefillTarget && 'ring-2 ring-primary/30',
+        complete && 'border-green-200 bg-green-50/30',
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">#{index + 1}</p>
+          <p className="font-semibold truncate">{row.studentName}</p>
+          <p className="font-mono text-xs text-blue-700">{row.admissionNumber}</p>
+          {showStream ? (
+            <span className="mt-1 inline-block rounded bg-muted px-2 py-0.5 text-xs">{row.classLevel}</span>
+          ) : null}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="text-lg font-bold text-primary">{hasAnyScore ? total.toFixed(1) : '—'}</p>
+          {grade ? (
+            <span className={cn('mt-1 inline-block rounded px-2 py-0.5 text-xs font-bold', gradeBadgeClass(grade))}>
+              {grade}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <ScoreFields
+        row={row}
+        loading={loading}
+        layout="grid"
+        onUpdate={(field, value) => onUpdate(row.admissionNumber, field, value)}
+      />
+    </div>
+  );
+}
+
 export function ResultUploadForm({
   initialSubject = '',
   initialClass = '',
   prefillStudent = null,
   onUploaded,
 }: ResultUploadFormProps) {
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [metaLoading, setMetaLoading] = useState(true);
+  const [studentsLoading, setStudentsLoading] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [classLevels, setClassLevels] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<Array<{ subject: string; classLevel: string }>>([]);
-  const [classStudents, setClassStudents] = useState<Array<{ id: string; admissionNumber: string; name: string }>>([]);
+  const [studentRows, setStudentRows] = useState<StudentScoreRow[]>([]);
   const [sessions, setSessions] = useState<AcademicSessionOption[]>([]);
   const [sessionId, setSessionId] = useState('');
   const [termId, setTermId] = useState('');
   const [metaRole, setMetaRole] = useState<'admin' | 'teacher'>('teacher');
 
-  const [formData, setFormData] = useState({
-    subject: initialSubject,
-    classAssigned: initialClass,
-    results: [] as StudentResult[],
-  });
+  const [subject, setSubject] = useState(initialSubject);
+  const [classAssigned, setClassAssigned] = useState(initialClass ? toClassPickerValue(initialClass) : '');
 
-  const [tempResult, setTempResult] = useState<StudentResult>({
-    studentId: prefillStudent?.studentId ?? '',
-    admissionNumber: prefillStudent?.admissionNumber ?? '',
-    studentName: prefillStudent?.studentName ?? '',
-    ca1: '',
-    ca2: '',
-    exam: '',
-  });
+  const prefillRowRef = useRef<HTMLDivElement | HTMLTableRowElement>(null);
 
   const loadMeta = useCallback(async () => {
     setMetaLoading(true);
@@ -109,133 +346,135 @@ export function ResultUploadForm({
 
   useEffect(() => {
     if (!prefillStudent) return;
-    setFormData((prev) => ({
-      ...prev,
-      classAssigned: prev.classAssigned || prefillStudent.classLevel,
-    }));
-    setTempResult((prev) => ({
-      ...prev,
-      studentId: prefillStudent.studentId,
-      admissionNumber: prefillStudent.admissionNumber,
-      studentName: prefillStudent.studentName,
-    }));
-  }, [prefillStudent]);
+    if (!classAssigned) setClassAssigned(toClassPickerValue(prefillStudent.classLevel));
+  }, [prefillStudent, classAssigned]);
 
-  useEffect(() => {
-    const isTeacherScoped = assignments.length > 0;
-    if (!isTeacherScoped || !formData.subject) return;
-    const allowedClasses = [...new Set(assignments.filter((a) => a.subject === formData.subject).map((a) => a.classLevel))];
-    if (allowedClasses.length === 0) return;
-    if (!allowedClasses.includes(formData.classAssigned)) {
-      setFormData((prev) => ({ ...prev, classAssigned: allowedClasses[0] ?? '' }));
+  const rawAllowedClasses = useMemo(() => {
+    if (assignments.length > 0 && subject) {
+      return [...new Set(assignments.filter((a) => a.subject === subject).map((a) => a.classLevel))];
     }
-  }, [assignments, formData.subject, formData.classAssigned]);
+    return classLevels;
+  }, [assignments, subject, classLevels]);
+
+  const classPickerOptions = useMemo(
+    () => toClassPickerOptions(rawAllowedClasses),
+    [rawAllowedClasses],
+  );
+
+  const catalogClasses = useMemo(
+    () => [...new Set([...classLevels, ...rawAllowedClasses])],
+    [classLevels, rawAllowedClasses],
+  );
+
+  const selectedOption = useMemo(
+    () => classPickerOptions.find((o) => o.value === classAssigned),
+    [classPickerOptions, classAssigned],
+  );
+
+  const showStreamBadge = (selectedOption?.streams.length ?? 0) > 1;
 
   useEffect(() => {
-    async function loadStudents() {
-      if (!formData.classAssigned) {
-        setClassStudents([]);
+    if (classPickerOptions.length === 0) return;
+    if (!classAssigned || !classPickerOptions.some((o) => o.value === classAssigned)) {
+      setClassAssigned(classPickerOptions[0]?.value ?? '');
+    }
+  }, [classPickerOptions, classAssigned]);
+
+  const rosterReady = Boolean(subject && classAssigned && sessionId && termId);
+
+  const loadClassRoster = useCallback(async () => {
+    if (!rosterReady) {
+      setStudentRows([]);
+      return;
+    }
+
+    setStudentsLoading(true);
+    setError(null);
+
+    try {
+      const studentsRes = await fetch(
+        `/api/teacher/class-students?classGroup=${encodeURIComponent(classAssigned)}`,
+        { credentials: 'include' },
+      );
+      const studentsData = await studentsRes.json();
+      if (!studentsRes.ok) {
+        setStudentRows([]);
+        setError(studentsData.error || 'Could not load students for this class.');
         return;
       }
-      try {
-        const res = await fetch(`/api/teacher/class-students?classLevel=${encodeURIComponent(formData.classAssigned)}`, {
-          credentials: 'include',
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setClassStudents([]);
-          return;
-        }
-        setClassStudents(Array.isArray(data.students) ? data.students : []);
-      } catch {
-        setClassStudents([]);
-      }
+
+      const students: Array<{ id: string; admissionNumber: string; name: string; classLevel: string }> =
+        Array.isArray(studentsData.students) ? studentsData.students : [];
+
+      const streamLevels = new Set(classLevelsForPickerValue(classAssigned, catalogClasses));
+
+      const resultsListUrl =
+        metaRole === 'admin'
+          ? `/api/admin/results/list?sessionId=${encodeURIComponent(sessionId)}&termId=${encodeURIComponent(termId)}`
+          : `/api/teacher/results/list?sessionId=${encodeURIComponent(sessionId)}&termId=${encodeURIComponent(termId)}`;
+
+      const resultsRes = await fetch(resultsListUrl, { credentials: 'include' });
+      const resultsData = await resultsRes.json();
+      const existingRows: Array<{
+        admissionNumber: string;
+        subject: string;
+        classLevel: string;
+        ca1: number;
+        ca2: number;
+        exam: number;
+      }> = resultsRes.ok && Array.isArray(resultsData.rows) ? resultsData.rows : [];
+
+      const existingByAdmission = new Map(
+        existingRows
+          .filter((r) => r.subject === subject && streamLevels.has(r.classLevel))
+          .map((r) => [r.admissionNumber, r]),
+      );
+
+      setStudentRows(
+        students.map((s) => {
+          const existing = existingByAdmission.get(s.admissionNumber);
+          return {
+            studentId: s.id,
+            admissionNumber: s.admissionNumber,
+            studentName: s.name,
+            classLevel: s.classLevel,
+            ca1: existing ? String(existing.ca1) : '',
+            ca2: existing ? String(existing.ca2) : '',
+            exam: existing ? String(existing.exam) : '',
+          };
+        }),
+      );
+    } catch {
+      setStudentRows([]);
+      setError('Could not load the class student list. Check your connection and try again.');
+    } finally {
+      setStudentsLoading(false);
     }
-    void loadStudents();
-  }, [formData.classAssigned]);
+  }, [rosterReady, classAssigned, sessionId, termId, subject, metaRole, catalogClasses]);
 
   useEffect(() => {
-    const admission = tempResult.admissionNumber.trim();
-    if (!admission) return;
-    const match = classStudents.find((s) => s.admissionNumber === admission);
-    if (match && tempResult.studentName !== match.name) {
-      setTempResult((prev) => ({ ...prev, studentName: match.name }));
-    }
-  }, [tempResult.admissionNumber, tempResult.studentName, classStudents]);
+    void loadClassRoster();
+  }, [loadClassRoster]);
 
-  function addResult() {
-    // Validate temp result
-    if (!tempResult.admissionNumber.trim()) {
-      setError('Admission number is required');
-      return;
-    }
-    if (!tempResult.studentName.trim()) {
-      setError('Student name is required');
-      return;
-    }
-    if (tempResult.ca1 === '' || Number.isNaN(parseFloat(tempResult.ca1))) {
-      setError('Valid CA1 score is required');
-      return;
-    }
-    if (tempResult.ca2 === '' || Number.isNaN(parseFloat(tempResult.ca2))) {
-      setError('Valid CA2 score is required');
-      return;
-    }
-    if (tempResult.exam === '' || Number.isNaN(parseFloat(tempResult.exam))) {
-      setError('Valid exam score is required');
-      return;
-    }
+  useEffect(() => {
+    if (!prefillStudent || studentRows.length === 0) return;
+    prefillRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [prefillStudent, studentRows.length]);
 
-    const ca1 = parseFloat(tempResult.ca1);
-    const ca2 = parseFloat(tempResult.ca2);
-    const exam = parseFloat(tempResult.exam);
-    if (ca1 < 0 || ca1 > 20) {
-      setError('CA1 must be between 0 and 20');
-      return;
-    }
-    if (ca2 < 0 || ca2 > 20) {
-      setError('CA2 must be between 0 and 20');
-      return;
-    }
-    if (exam < 0 || exam > 60) {
-      setError('Exam must be between 0 and 60');
-      return;
-    }
+  const completedCount = useMemo(() => studentRows.filter(rowIsComplete).length, [studentRows]);
+  const partialCount = useMemo(
+    () => studentRows.filter((r) => rowHasScores(r) && !rowIsComplete(r)).length,
+    [studentRows],
+  );
+  const allComplete = studentRows.length > 0 && completedCount === studentRows.length;
+  const remainingCount = studentRows.length - completedCount;
 
-    // Check for duplicate admission number
-    if (formData.results.some((r) => r.admissionNumber === tempResult.admissionNumber)) {
-      setError('This student is already in the list');
-      return;
-    }
-
+  function updateScore(admissionNumber: string, field: 'ca1' | 'ca2' | 'exam', value: string) {
+    setStudentRows((prev) =>
+      prev.map((row) => (row.admissionNumber === admissionNumber ? { ...row, [field]: value } : row)),
+    );
     setError(null);
-    setFormData((prev) => ({
-      ...prev,
-      results: [
-        ...prev.results,
-        {
-          ...tempResult,
-          studentId: `student_${tempResult.admissionNumber}`,
-        },
-      ],
-    }));
-
-    // Reset temp result
-    setTempResult({
-      studentId: prefillStudent?.studentId ?? '',
-      admissionNumber: prefillStudent?.admissionNumber ?? '',
-      studentName: prefillStudent?.studentName ?? '',
-      ca1: '',
-      ca2: '',
-      exam: '',
-    });
-  }
-
-  function removeResult(admissionNumber: string) {
-    setFormData((prev) => ({
-      ...prev,
-      results: prev.results.filter((r) => r.admissionNumber !== admissionNumber),
-    }));
+    setSuccess(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -245,52 +484,42 @@ export function ResultUploadForm({
     setLoading(true);
 
     try {
-      if (!formData.subject) throw new Error('Subject is required');
-      if (!formData.classAssigned) throw new Error('Class is required');
+      if (!subject) throw new Error('Subject is required');
+      if (!classAssigned) throw new Error('Class is required');
       if (!sessionId || !termId) {
         throw new Error('Please select academic session and term for these results.');
       }
 
-      let resultsToSubmit = formData.results;
-      // In prefilled single-student flow, allow direct submit from CA fields
-      // without requiring an extra "Add" click.
-      if (resultsToSubmit.length === 0 && prefillStudent) {
-        if (tempResult.ca1 === '' || Number.isNaN(parseFloat(tempResult.ca1))) {
-          throw new Error('Valid CA1 score is required');
-        }
-        if (tempResult.ca2 === '' || Number.isNaN(parseFloat(tempResult.ca2))) {
-          throw new Error('Valid CA2 score is required');
-        }
-        if (tempResult.exam === '' || Number.isNaN(parseFloat(tempResult.exam))) {
-          throw new Error('Valid exam score is required');
-        }
-        const ca1 = parseFloat(tempResult.ca1);
-        const ca2 = parseFloat(tempResult.ca2);
-        const exam = parseFloat(tempResult.exam);
-        if (ca1 < 0 || ca1 > 20) throw new Error('CA1 must be between 0 and 20');
-        if (ca2 < 0 || ca2 > 20) throw new Error('CA2 must be between 0 and 20');
-        if (exam < 0 || exam > 60) throw new Error('Exam must be between 0 and 60');
-
-        resultsToSubmit = [
-          {
-            ...tempResult,
-            studentId: tempResult.studentId || `student_${tempResult.admissionNumber}`,
-          },
-        ];
+      if (studentRows.length === 0) {
+        throw new Error('No students in this class.');
       }
 
-      if (resultsToSubmit.length === 0) throw new Error('At least one student result is required');
+      if (!allComplete) {
+        throw new Error(`Enter scores for all ${studentRows.length} students before uploading (${remainingCount} remaining).`);
+      }
+
+      for (const row of studentRows) {
+        const validationError = validateScoreRow(row);
+        if (validationError) throw new Error(validationError);
+      }
 
       const response = await fetch('/api/results/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          subject: formData.subject,
-          classAssigned: formData.classAssigned,
+          subject,
+          classAssigned,
           sessionId,
           termId,
-          results: resultsToSubmit,
+          results: studentRows.map((row) => ({
+            studentId: row.studentId,
+            admissionNumber: row.admissionNumber,
+            studentName: row.studentName,
+            ca1: row.ca1,
+            ca2: row.ca2,
+            exam: row.exam,
+          })),
         }),
       });
 
@@ -303,15 +532,8 @@ export function ResultUploadForm({
       setSuccess(true);
       setSuccessMessage(data.message);
       onUploaded?.();
+      void loadClassRoster();
 
-      // Reset form
-      setFormData({
-        subject: '',
-        classAssigned: '',
-        results: [],
-      });
-
-      // Clear success message after 5 seconds
       setTimeout(() => setSuccess(false), 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -323,9 +545,9 @@ export function ResultUploadForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Upload Student Results</CardTitle>
+        <CardTitle>Enter Student Results</CardTitle>
         <CardDescription>
-          Upload marks for all students in your assigned class and subject
+          Choose term, subject, and class — enter every student&apos;s scores, then upload
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -357,273 +579,193 @@ export function ResultUploadForm({
               Refresh sessions
             </Button>
           </div>
-          {sessions.length === 0 && !metaLoading ? (
-            <p className="text-sm text-muted-foreground">
-              After adding a session/term in Admin → Settings → Academic, click <strong>Refresh sessions</strong> above.
-            </p>
-          ) : null}
 
-          {/* Subject and Class Selection */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="subject">Subject *</Label>
-              <Select
-                value={formData.subject}
-                onValueChange={(value) => setFormData({ ...formData, subject: value })}
-                disabled={loading || metaLoading}
-              >
+              <Select value={subject} onValueChange={setSubject} disabled={loading || metaLoading}>
                 <SelectTrigger id="subject" disabled={loading || metaLoading}>
                   <SelectValue placeholder={subjects.length ? 'Select subject' : 'No subjects available'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
+                  {subjects.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {metaRole === 'teacher' && subjects.length === 0 && !metaLoading ? (
-                <p className="text-xs text-amber-700">
-                  No subjects are linked to your teacher account. Admin must assign subjects/classes under Admin → Teachers
-                  (edit teacher → subject/class assignments).
-                </p>
-              ) : null}
-              {metaRole === 'admin' && subjects.length === 0 && !metaLoading ? (
-                <p className="text-xs text-amber-700">
-                  No active subjects in the system. Add subjects under Admin → Subjects first.
-                </p>
-              ) : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="classAssigned">Class *</Label>
-              <Select value={formData.classAssigned} onValueChange={(value) => setFormData({ ...formData, classAssigned: value })}>
-                <SelectTrigger id="classAssigned" disabled={loading}>
+              <Select value={classAssigned} onValueChange={setClassAssigned} disabled={loading || metaLoading}>
+                <SelectTrigger id="classAssigned" disabled={loading || metaLoading}>
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(assignments.length > 0 && formData.subject
-                    ? [...new Set(assignments.filter((a) => a.subject === formData.subject).map((a) => a.classLevel))]
-                    : classLevels
-                  ).map((cls) => (
-                    <SelectItem key={cls} value={cls}>
-                      {cls}
+                  {classPickerOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                      {option.streams.length > 1 ? ` (${option.streams.join(', ')})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedOption && selectedOption.streams.length > 1 ? (
+                <p className="text-xs text-muted-foreground">
+                  Includes all streams: {selectedOption.streams.join(', ')}
+                </p>
+              ) : null}
             </div>
           </div>
-          {metaLoading && <p className="text-xs text-muted-foreground">Loading subject/class options…</p>}
 
-          {/* Add Student Result Section */}
-          <div className="border rounded-lg p-4 bg-gray-50 space-y-4">
-            <h4 className="font-semibold">Add Student Results</h4>
+          {!rosterReady ? (
+            <Alert>
+              <ClipboardList className="h-4 w-4" />
+              <AlertDescription>
+                Select session, term, subject, and class to load the full student list.
+              </AlertDescription>
+            </Alert>
+          ) : studentsLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader className="h-5 w-5 animate-spin" />
+              Loading students in {classAssigned}…
+            </div>
+          ) : studentRows.length === 0 ? (
+            <Alert>
+              <Users className="h-4 w-4" />
+              <AlertDescription>No students found in {classAssigned}. Add students under Admin → Students.</AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-muted/40 px-4 py-3">
+                <div>
+                  <p className="font-medium">
+                    {classAssigned} · {subject}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    All {studentRows.length} students must be filled before upload
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <span
+                    className={cn(
+                      'rounded-full px-3 py-1 font-medium',
+                      allComplete ? 'bg-green-100 text-green-800' : 'bg-green-50 text-green-700',
+                    )}
+                  >
+                    {completedCount} / {studentRows.length} complete
+                  </span>
+                  {partialCount > 0 ? (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">
+                      {partialCount} in progress
+                    </span>
+                  ) : null}
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="admissionNumber">Admission Number</Label>
-                <Input
-                  id="admissionNumber"
-                  list="class-students-admission-list"
-                  placeholder="HAA/2024/001"
-                  value={tempResult.admissionNumber}
-                  onChange={(e) => setTempResult({ ...tempResult, admissionNumber: e.target.value })}
-                  disabled={loading || Boolean(prefillStudent)}
-                  className="font-mono"
-                />
-                <datalist id="class-students-admission-list">
-                  {classStudents.map((s) => (
-                    <option key={s.id} value={s.admissionNumber}>
-                      {s.name}
-                    </option>
+              <Alert>
+                <AlertDescription>
+                  CA1 and CA2 are out of 20 each. Exam is out of 60. Total and grade update automatically.
+                </AlertDescription>
+              </Alert>
+
+              {isMobile ? (
+                <div className="space-y-3">
+                  {studentRows.map((row, index) => (
+                    <StudentScoreCard
+                      key={row.admissionNumber}
+                      row={row}
+                      index={index}
+                      loading={loading}
+                      isPrefillTarget={prefillStudent?.admissionNumber === row.admissionNumber}
+                      showStream={showStreamBadge}
+                      onUpdate={updateScore}
+                      rowRef={
+                        prefillStudent?.admissionNumber === row.admissionNumber ? prefillRowRef : undefined
+                      }
+                    />
                   ))}
-                </datalist>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="studentName">Student Name</Label>
-                <Input
-                  id="studentName"
-                  placeholder="John Doe"
-                  value={tempResult.studentName}
-                  onChange={(e) => setTempResult({ ...tempResult, studentName: e.target.value })}
-                  disabled={loading || Boolean(prefillStudent)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="ca1">CA1 (0-20)</Label>
-                <Input
-                  id="ca1"
-                  type="number"
-                  min="0"
-                  max="20"
-                  step="0.5"
-                  placeholder="15.0"
-                  value={tempResult.ca1}
-                  onChange={(e) => setTempResult({ ...tempResult, ca1: e.target.value })}
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ca2">CA2 (0-20)</Label>
-                <Input
-                  id="ca2"
-                  type="number"
-                  min="0"
-                  max="20"
-                  step="0.5"
-                  placeholder="14.0"
-                  value={tempResult.ca2}
-                  onChange={(e) => setTempResult({ ...tempResult, ca2: e.target.value })}
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="exam">Exam (0-60)</Label>
-                <Input
-                  id="exam"
-                  type="number"
-                  min="0"
-                  max="60"
-                  step="0.5"
-                  placeholder="45.0"
-                  value={tempResult.exam}
-                  onChange={(e) => setTempResult({ ...tempResult, exam: e.target.value })}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
-                Total:{" "}
-                <span className="font-semibold text-foreground">
-                  {(Number(tempResult.ca1 || 0) + Number(tempResult.ca2 || 0) + Number(tempResult.exam || 0)).toFixed(1)}
-                </span>{" "}
-                / 100
-              </div>
-              <div>
-                <Button
-                  type="button"
-                  onClick={addResult}
-                  disabled={loading}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Results List */}
-          {formData.results.length > 0 && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-gray-100 p-4">
-                <h4 className="font-semibold">
-                  Added Results ({formData.results.length})
-                </h4>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-gray-50">
-                    <tr>
-                      <th className="text-left p-3">Admission Number</th>
-                      <th className="text-left p-3">Student Name</th>
-                      <th className="text-center p-3">CA1</th>
-                      <th className="text-center p-3">CA2</th>
-                      <th className="text-center p-3">Exam</th>
-                      <th className="text-center p-3">Total</th>
-                      <th className="text-center p-3">Grade</th>
-                      <th className="text-center p-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {formData.results.map((result) => {
-                      const ca1 = parseFloat(result.ca1);
-                      const ca2 = parseFloat(result.ca2);
-                      const exam = parseFloat(result.exam);
-                      const total = ca1 + ca2 + exam;
-                      const grade = scoreToGrade(total);
-
-                      return (
-                        <tr key={result.admissionNumber} className="border-b">
-                          <td className="p-3 font-mono text-blue-600">{result.admissionNumber}</td>
-                          <td className="p-3">{result.studentName}</td>
-                          <td className="text-center p-3 font-semibold">{result.ca1}</td>
-                          <td className="text-center p-3 font-semibold">{result.ca2}</td>
-                          <td className="text-center p-3 font-semibold">{result.exam}</td>
-                          <td className="text-center p-3 font-semibold text-primary">{total.toFixed(1)}</td>
-                          <td className="text-center p-3">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                              grade === 'A' ? 'bg-green-100 text-green-800' :
-                              grade === 'B' ? 'bg-blue-100 text-blue-800' :
-                              grade === 'C' ? 'bg-yellow-100 text-yellow-800' :
-                              grade === 'D' ? 'bg-orange-100 text-orange-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {grade}
-                            </span>
-                          </td>
-                          <td className="text-center p-3">
-                            <button
-                              type="button"
-                              onClick={() => removeResult(result.admissionNumber)}
-                              className="text-red-600 hover:text-red-800"
-                              disabled={loading}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-sm">
+                      <thead className="border-b bg-muted/60">
+                        <tr>
+                          <th className="text-left p-3 font-semibold w-10">S/N</th>
+                          <th className="text-left p-3 font-semibold">Admission No</th>
+                          <th className="text-left p-3 font-semibold min-w-[140px]">Student Name</th>
+                          <th className="text-center p-3 font-semibold w-24">CA1 (20)</th>
+                          <th className="text-center p-3 font-semibold w-24">CA2 (20)</th>
+                          <th className="text-center p-3 font-semibold w-24">Exam (60)</th>
+                          <th className="text-center p-3 font-semibold w-20">Total</th>
+                          <th className="text-center p-3 font-semibold w-16">Grade</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {studentRows.map((row, index) => (
+                          <StudentTableRow
+                            key={row.admissionNumber}
+                            row={row}
+                            index={index}
+                            loading={loading}
+                            isPrefillTarget={prefillStudent?.admissionNumber === row.admissionNumber}
+                            showStream={showStreamBadge}
+                            onUpdate={updateScore}
+                            rowRef={
+                              prefillStudent?.admissionNumber === row.admissionNumber ? prefillRowRef : undefined
+                            }
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Submit Button */}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setFormData({ subject: '', classAssigned: '', results: [] });
-                setTempResult({ studentId: '', admissionNumber: '', studentName: '', ca1: '', ca2: '', exam: '' });
-              }}
-              disabled={loading}
-            >
-              Clear All
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                loading ||
-                !sessionId ||
-                !termId ||
-                (formData.results.length === 0 && !prefillStudent)
-              }
-              className="flex-1 bg-green-600 hover:bg-green-700"
-            >
-              {loading ? (
-                <>
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Results
-                </>
-              )}
-            </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {allComplete
+                ? `All ${studentRows.length} students ready — you can upload now`
+                : studentRows.length > 0
+                  ? `${remainingCount} student${remainingCount === 1 ? '' : 's'} still need scores`
+                  : 'Fill in all scores above before uploading'}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setStudentRows((prev) => prev.map((r) => ({ ...r, ca1: '', ca2: '', exam: '' })));
+                  setError(null);
+                  setSuccess(false);
+                }}
+                disabled={loading || studentRows.length === 0}
+              >
+                Clear scores
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || !sessionId || !termId || !allComplete}
+                className="bg-green-600 hover:bg-green-700 min-w-[160px]"
+              >
+                {loading ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading…
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload all ({studentRows.length})
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </form>
       </CardContent>

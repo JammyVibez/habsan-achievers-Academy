@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { resolveSessionAndTerm } from '@/lib/academic-calendar';
 import { scoreToComment, scoreToGrade } from '@/lib/grades';
 import { getSessionFromRequest } from '@/lib/auth-session';
+import { classLevelsForPickerValue, getJssGroupKey } from '@/lib/class-groups';
+import { getClassCatalog } from '@/lib/class-catalog';
 
 type ResultRow = {
   studentId?: string;
@@ -45,6 +47,8 @@ export async function POST(request: NextRequest) {
     }
 
     const classNorm = classAssigned.trim();
+    const catalog = await getClassCatalog();
+    const allowedClassLevels = new Set(classLevelsForPickerValue(classNorm, catalog));
 
     for (const result of results) {
       if (
@@ -93,10 +97,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (user.role === 'teacher' && teacherIdForRow) {
-      const assigned = await prisma.teacherSubject.findFirst({
-        where: { teacherId: teacherIdForRow, subjectId: subjectRecord.id, classLevel: classNorm },
+      const teacherAssignments = await prisma.teacherSubject.findMany({
+        where: { teacherId: teacherIdForRow, subjectId: subjectRecord.id },
+        select: { classLevel: true },
       });
-      if (!assigned) {
+      const assignedLevels = new Set(teacherAssignments.map((a) => a.classLevel.trim()));
+      const hasGroupAccess = [...allowedClassLevels].some((level) => assignedLevels.has(level));
+      if (!hasGroupAccess) {
         return NextResponse.json(
           { error: 'You are not assigned to this subject for this class' },
           { status: 403 },
@@ -131,13 +138,31 @@ export async function POST(request: NextRequest) {
           { status: 404 },
         );
       }
-      if (student.classLevel.trim() !== classNorm) {
+      const studentClass = student.classLevel.trim();
+      if (!allowedClassLevels.has(studentClass)) {
+        const groupLabel = getJssGroupKey(classNorm) ?? classNorm;
         return NextResponse.json(
           {
-            error: `Student ${row.admissionNumber} is in "${student.classLevel}", not "${classNorm}".`,
+            error: `Student ${row.admissionNumber} is in "${studentClass}", not part of "${groupLabel}".`,
           },
           { status: 400 },
         );
+      }
+
+      if (user.role === 'teacher' && teacherIdForRow) {
+        const assigned = await prisma.teacherSubject.findFirst({
+          where: {
+            teacherId: teacherIdForRow,
+            subjectId: subjectRecord.id,
+            classLevel: studentClass,
+          },
+        });
+        if (!assigned) {
+          return NextResponse.json(
+            { error: `You are not assigned to ${subject.trim()} for ${studentClass}` },
+            { status: 403 },
+          );
+        }
       }
 
       const grade = scoreToGrade(total);

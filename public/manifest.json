@@ -1,0 +1,17 @@
+{
+  "name": "HABSAN Achievers Academy",
+  "short_name": "HAA School",
+  "description": "Quality education from Pre-Nursery to Secondary School",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

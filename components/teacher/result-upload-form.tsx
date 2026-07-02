@@ -11,6 +11,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { scoreToGrade } from '@/lib/grades';
 import { SessionTermPicker } from '@/components/academic/session-term-picker';
 import type { AcademicSessionOption } from '@/lib/academic-calendar-types';
+import { submitOrQueue } from '@/lib/offline-submit';
+import { OfflineQueueAlert } from '@/components/offline/offline-queue-alert';
+import { useNetworkStatus } from '@/components/offline/network-status-provider';
 import {
   classLevelsForPickerValue,
   toClassPickerOptions,
@@ -306,6 +309,7 @@ export function ResultUploadForm({
   const [classAssigned, setClassAssigned] = useState(initialClass ? toClassPickerValue(initialClass) : '');
 
   const prefillRowRef = useRef<HTMLDivElement | HTMLTableRowElement>(null);
+  const { isOffline } = useNetworkStatus();
 
   const loadMeta = useCallback(async () => {
     setMetaLoading(true);
@@ -503,29 +507,40 @@ export function ResultUploadForm({
         if (validationError) throw new Error(validationError);
       }
 
-      const response = await fetch('/api/results/upload', {
+      const uploadPayload = {
+        subject,
+        classAssigned,
+        sessionId,
+        termId,
+        results: studentRows.map((row) => ({
+          studentId: row.studentId,
+          admissionNumber: row.admissionNumber,
+          studentName: row.studentName,
+          ca1: row.ca1,
+          ca2: row.ca2,
+          exam: row.exam,
+        })),
+      };
+
+      const outcome = await submitOrQueue({
+        url: '/api/results/upload',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        body: uploadPayload,
+        label: `Results: ${classAssigned} · ${subject}`,
+        queueKey: `results-${classAssigned}-${subject}-${sessionId}-${termId}`,
         credentials: 'include',
-        body: JSON.stringify({
-          subject,
-          classAssigned,
-          sessionId,
-          termId,
-          results: studentRows.map((row) => ({
-            studentId: row.studentId,
-            admissionNumber: row.admissionNumber,
-            studentName: row.studentName,
-            ca1: row.ca1,
-            ca2: row.ca2,
-            exam: row.exam,
-          })),
-        }),
       });
 
-      const data = await response.json();
+      if (outcome.queued) {
+        setSuccess(true);
+        setSuccessMessage(`${outcome.message} (${studentRows.length} students)`);
+        setTimeout(() => setSuccess(false), 8000);
+        return;
+      }
 
-      if (!response.ok) {
+      const data = await outcome.response.json();
+
+      if (!outcome.response.ok) {
         throw new Error(data.error || 'Failed to upload results');
       }
 
@@ -552,6 +567,17 @@ export function ResultUploadForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <OfflineQueueAlert />
+
+          {isOffline ? (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertDescription className="text-amber-900">
+                You are offline. You can still fill scores and tap upload — they will be saved and sent
+                automatically when your data connection returns.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />

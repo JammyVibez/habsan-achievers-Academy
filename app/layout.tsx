@@ -1,8 +1,9 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter, Poppins } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
+import { NetworkStatusProvider } from "@/components/offline/network-status-provider"
 import "./globals.css"
 
 const inter = Inter({
@@ -23,7 +24,17 @@ export const metadata: Metadata = {
   description:
     "HABSAN ACHIEVERS ACADEMY (H.A.A) - A leading Nigerian educational institution offering quality education from Pre-Nursery to Secondary School (SS3)",
   keywords: "Nigerian school, private school, quality education, Abuja school, primary school, secondary school",
-    generator: 'v0.app'
+  generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'HAA School',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#1e40af',
 }
 
 export default function RootLayout({
@@ -34,7 +45,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${inter.variable} ${poppins.variable} antialiased`}>
-        <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+        <NetworkStatusProvider>
+          <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+        </NetworkStatusProvider>
         <Analytics />
       </body>
     </html>

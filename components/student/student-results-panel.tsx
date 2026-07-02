@@ -147,17 +147,15 @@ export function StudentResultsPanel() {
       });
       const data = await response.json();
       if (!response.ok) {
-        setError(data.error || 'Failed to generate PDF');
+        setError(data.error || 'Failed to generate report card');
         return;
       }
-      alert(
-        'Report card HTML is ready.\n\nIn production you can plug html2pdf or a print stylesheet to download automatically.',
-      );
       if (typeof data.html === 'string' && data.html.length > 0) {
         const w = window.open('', '_blank');
         if (w) {
           w.document.write(data.html);
           w.document.close();
+          w.focus();
         }
       }
     } catch {

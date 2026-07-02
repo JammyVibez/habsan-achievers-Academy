@@ -134,23 +134,19 @@ export function AdvancedResultChecker() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate PDF');
+        throw new Error(data.error || 'Failed to generate report card');
       }
 
-      // TODO: Install and use html2pdf or jsPDF library for client-side PDF generation
-      // For now, show success message
-      alert('PDF Report Card generated successfully!\n\nIn production, this will download automatically.');
-      
-      // Example with html2pdf (after installing):
-      // const htmlString = data.html;
-      // const opt = {
-      //   margin: 10,
-      //   filename: data.fileName,
-      //   image: { type: 'jpeg', quality: 0.98 },
-      //   html2canvas: { scale: 2 },
-      //   jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-      // };
-      // html2pdf().set(opt).from(htmlString).save();
+      if (typeof data.html === 'string' && data.html.length > 0) {
+        const w = window.open('', '_blank');
+        if (w) {
+          w.document.write(data.html);
+          w.document.close();
+          w.focus();
+        }
+      } else {
+        throw new Error('Report card HTML was empty');
+      }
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download PDF');
